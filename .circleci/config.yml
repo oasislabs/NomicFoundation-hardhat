@@ -23,6 +23,8 @@ jobs:
       - node/install:
           node-version: << parameters.node-version >>
           install-yarn: true
+      - node/install-packages:
+          pkg-manager: yarn
       - run: 
           name: Running tests of package << parameters.package >>
           command: |
