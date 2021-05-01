@@ -22,19 +22,18 @@ jobs:
       - checkout
       - node/install:
           node-version: << parameters.node-version >>
-          pkg-manager: yarn
+          install-yarn: true
       - run: cd packages/<< parameters.package >>
       - run: yarn test
 workflows:
   node-tests:
     jobs:
       - test_package:
-          pkg-manager: yarn
           matrix:
             parameters:
-              executor:
+              os:
                 - linux
-              version:
+              node-version:
                 - 13.11.0
                 - 12.16.0
                 - 10.19.0
