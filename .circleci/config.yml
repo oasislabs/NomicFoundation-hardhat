@@ -23,8 +23,9 @@ jobs:
       - node/install:
           node-version: << parameters.node-version >>
           install-yarn: true
-      - run: cd packages/<< parameters.package >>
-      - run: yarn test
+      - run: 
+        - cd packages/<< parameters.package >>
+        - yarn test
 workflows:
   node-tests:
     jobs:
