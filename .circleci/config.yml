@@ -1,8 +1,57 @@
 version: 2.1
+
+executors:
+  linux:
+    docker:
+      - image: cimg/base:2020.01
+
 orbs:
   node: circleci/node@4.3.0
+
+jobs: 
+  test_package:
+    parameters:
+      os:
+        type: executor
+      node-version:
+        type: string
+      package:
+        type: string
+    executor: << parameters.os >>
+    steps:
+      - checkout
+      - node/install:
+          node-version: << parameters.node-version >>
+          pkg-manager: yarn
+      - run: cd packages/<< parameters.package >>
+      - run: yarn test
 workflows:
   node-tests:
     jobs:
-      - node/test:
+      - test_package:
           pkg-manager: yarn
+          matrix:
+            parameters:
+              executor:
+                - linux
+              version:
+                - 13.11.0
+                - 12.16.0
+                - 10.19.0
+              package:
+                - e2e
+                - hardhat-core
+                - hardhat-docker
+                - hardhat-ethers
+                - hardhat-etherscan
+                - hardhat-ganache
+                - hardhat-shorthand
+                - hardhat-solhint
+                - hardhat-solpp
+                - hardhat-truffle4
+                - hardhat-truffle5
+                - hardhat-vyper
+                - hardhat-waffle
+                - hardhat-web3
+                - hardhat-web3-legacy
+
