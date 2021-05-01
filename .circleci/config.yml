@@ -25,6 +25,7 @@ jobs:
           install-yarn: true
       - node/install-packages:
           pkg-manager: yarn
+      - run: yarn build
       - run: 
           name: Running tests of package << parameters.package >>
           command: |
