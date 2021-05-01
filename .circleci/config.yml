@@ -24,8 +24,10 @@ jobs:
           node-version: << parameters.node-version >>
           install-yarn: true
       - run: 
-        - cd packages/<< parameters.package >>
-        - yarn test
+          name: Running tests of package << parameters.package >>
+          command: |
+            cd packages/<< parameters.package >>
+            yarn test
 workflows:
   node-tests:
     jobs:
@@ -54,4 +56,3 @@ workflows:
                 - hardhat-waffle
                 - hardhat-web3
                 - hardhat-web3-legacy
-
