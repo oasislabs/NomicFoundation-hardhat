@@ -2,6 +2,7 @@ import chalk from "chalk";
 import debug from "debug";
 import type EthereumjsUtilT from "ethereumjs-util";
 import fsExtra from "fs-extra";
+import { addOne } from "hardhat-network-core";
 
 import { HARDHAT_NETWORK_NAME } from "../internal/constants";
 import { subtask, task, types } from "../internal/core/config/config-env";
@@ -155,6 +156,9 @@ subtask(TASK_NODE_CREATE_SERVER)
         port,
         provider,
       };
+
+      console.log("Initializing Hardhat Network's JSON-RPC server");
+      console.log("Adding one to 3 using hardhat-network-core", addOne(3));
 
       const server = new JsonRpcServerImpl(serverConfig);
 
