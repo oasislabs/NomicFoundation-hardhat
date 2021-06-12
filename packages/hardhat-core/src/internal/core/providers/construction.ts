@@ -1,3 +1,5 @@
+import { addOne } from "hardhat-network-core";
+
 import type {
   Artifacts,
   BoundExperimentalHardhatNetworkMessageTraceHook,
@@ -53,6 +55,9 @@ export function createProvider(
   let eip1193Provider: EIP1193Provider;
 
   if (networkName === HARDHAT_NETWORK_NAME) {
+    console.log("Initializing Hardhat Network's in-memory provider");
+    console.log("Adding one to 2 using hardhat-network-core", addOne(2));
+
     const hardhatNetConfig = networkConfig as HardhatNetworkConfig;
 
     const HardhatNetworkProvider = importProvider<
