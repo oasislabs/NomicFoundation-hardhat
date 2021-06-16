@@ -41,6 +41,9 @@ if (shouldIgnoreSolppTests) {
   ignoredPackagesList.push("--exclude @nomiclabs/hardhat-solpp");
 }
 
+// TODO: Reintroduce this test before releasing this PR
+ignoredPackagesList.push("--exclude @nomiclabs/hardhat-e2e-tests");
+
 const ignoredPackages = ignoredPackagesList.join(" ");
 
 function runTests() {
