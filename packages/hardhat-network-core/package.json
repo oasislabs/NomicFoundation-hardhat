@@ -1,0 +1,65 @@
+{
+  "name": "hardhat-network-core",
+  "version": "1.0.0",
+  "description": "Hardhat Network's core",
+  "repository": "github:nomiclabs/hardhat",
+  "homepage": "https://github.com/nomiclabs/hardhat/tree/master/packages/hardhat-network-core",
+  "author": "Nomic Labs LLC",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "keywords": [
+    "ethereum",
+    "smart-contracts",
+    "hardhat",
+    "hardhat-network",
+    "development network",
+    "blockchain simulator"
+  ],
+  "scripts": {
+    "lint": "yarn prettier --check && yarn eslint",
+    "lint:fix": "yarn prettier --write && yarn eslint --fix",
+    "prettier": "prettier \"**/*.{js,md,json}\"",
+    "eslint": "eslint 'src/**/*.ts' 'test/**/*.ts'",
+    "build": "tsc --build .",
+    "clean": "rimraf dist"
+  },
+  "files": [
+    "dist/src",
+    "src/",
+    "LICENSE",
+    "README.md"
+  ],
+  "dependencies": {
+    "@ethereumjs/block": "^3.3.0",
+    "@ethereumjs/common": "^2.3.1",
+    "@ethereumjs/vm": "^5.4.1",
+    "@ethersproject/abi": "^5.4.0",
+    "chalk": "^4.1.1",
+    "debug": "^4.3.1",
+    "ethereumjs-abi": "^0.6.8",
+    "ethereumjs-util": "^7.0.10",
+    "fs-extra": "^10.0.0",
+    "hardhat-types": "^1.0.0",
+    "io-ts": "^2.2.16",
+    "semver": "^7.3.5",
+    "util": "^0.12.4"
+  },
+  "devDependencies": {
+    "@nomiclabs/eslint-plugin": "^1.0.0",
+    "@types/chai": "^4.2.0",
+    "@types/mocha": "^5.2.6",
+    "@types/node": "^10.17.24",
+    "@typescript-eslint/eslint-plugin": "^4.28.0",
+    "@typescript-eslint/parser": "^4.28.0",
+    "chai": "^4.2.0",
+    "eslint": "^7.29.0",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-import": "^2.23.4",
+    "eslint-plugin-prettier": "^3.4.0",
+    "mocha": "^7.1.2",
+    "prettier": "2.0.5",
+    "rimraf": "^3.0.2",
+    "ts-node": "^8.1.0",
+    "typescript": "~4.0.3"
+  }
+}

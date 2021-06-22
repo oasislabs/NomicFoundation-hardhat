@@ -1,0 +1,1 @@
+# hardhat-network-core

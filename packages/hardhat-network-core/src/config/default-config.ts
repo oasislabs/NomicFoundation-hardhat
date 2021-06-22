@@ -1,0 +1,1 @@
+export const HARDHAT_NETWORK_DEFAULT_GAS_PRICE = 8e9;
