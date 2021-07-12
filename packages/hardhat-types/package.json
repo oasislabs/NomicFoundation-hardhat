@@ -29,7 +29,7 @@
     "README.md"
   ],
   "dependencies": {
-    "ethereumjs-util": "^7.0.10"
+    "ethereumjs-util": "^7.1.0"
   },
   "devDependencies": {
     "@nomiclabs/eslint-plugin": "^1.0.0",
