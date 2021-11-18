@@ -108,6 +108,16 @@ export function bufferToRpcData(
   if (padToBytes > 0 && s.length < padToBytes * 2 + 2) {
     s = `0x${"0".repeat(padToBytes * 2 + 2 - s.length)}${s.slice(2)}`;
   }
+
+  if (s.length > padToBytes * 2 + 2) {
+    let zeros = 0;
+    for (let i = 2; i < s.length && s[i] === "0"; i++) {
+      zeros++;
+    }
+
+    s = `0x${s.substr(2 + zeros)}`;
+  }
+
   return s;
 }
 
