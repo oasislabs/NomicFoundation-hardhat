@@ -17,10 +17,12 @@ import debug from "debug";
 import {
   Address,
   BN,
+  bnToHex,
   bufferToHex,
   ECDSASignature,
   ecsign,
   hashPersonalMessage,
+  intToHex,
   privateToAddress,
   toBuffer,
 } from "ethereumjs-util";
@@ -113,6 +115,15 @@ import { makeStateTrie } from "./utils/makeStateTrie";
 import { makeForkCommon } from "./utils/makeForkCommon";
 import { putGenesisBlock } from "./utils/putGenesisBlock";
 import { txMapToArray } from "./utils/txMapToArray";
+import {
+  BuildBlockConfig,
+  fromRethnetHeader,
+  getRethnet,
+  RethnetVM,
+  toRethnetAccessList,
+} from "./rethnet/rethnet-vm";
+
+/* eslint-disable @typescript-eslint/naming-convention */
 
 const log = debug("hardhat:core:hardhat-network:node");
 
@@ -236,7 +247,7 @@ export class HardhatNode extends EventEmitter {
 
     const txPool = new TxPool(stateManager, new BN(blockGasLimit), common);
 
-    const vm = new VM({
+    const ethereumJsVM = new VM({
       common,
       activatePrecompiles: true,
       stateManager,
@@ -244,8 +255,64 @@ export class HardhatNode extends EventEmitter {
       allowUnlimitedContractSize,
     });
 
+    const rethnet = getRethnet();
+
+    const rethnetAccountsConfig = genesisAccounts.map((a) => {
+      let initialBalance: string;
+
+      if (typeof a.balance === "string") {
+        initialBalance = a.balance;
+      } else if (typeof a.balance === "number") {
+        initialBalance = intToHex(a.balance);
+      } else {
+        initialBalance = bnToHex(a.balance);
+      }
+
+      return {
+        private_key: a.privateKey,
+        initial_balance: initialBalance,
+      };
+    });
+
+    let genesisBlockTimestampMs: number;
+    if (config.initialDate !== undefined) {
+      genesisBlockTimestampMs = config.initialDate.valueOf();
+    } else {
+      genesisBlockTimestampMs = Date.now();
+    }
+
+    let initialBaseFeePerGas: string;
+    if (config.initialBaseFeePerGas !== undefined) {
+      initialBaseFeePerGas = intToHex(config.initialBaseFeePerGas);
+    } else {
+      initialBaseFeePerGas = intToHex(7);
+    }
+
+    const genesisBlock = {
+      nonce: "0x0000000000000042",
+      timestamp: Math.floor(genesisBlockTimestampMs / 1000),
+      extra_data: "0x1234",
+      gas_limit: intToHex(config.blockGasLimit),
+      difficulty: "0x1",
+      mix_hash:
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+      coinbase: config.coinbase,
+      base_fee_per_gas: initialBaseFeePerGas,
+    };
+
+    const rethnetVMId = await rethnet.create_client(
+      {
+        chain_id: config.chainId,
+        genesis_block: genesisBlock,
+      },
+      rethnetAccountsConfig
+    );
+
     const node = new HardhatNode(
-      vm,
+      ethereumJsVM,
+      rethnet,
+      rethnetVMId,
+      false, // useRethnet
       stateManager,
       blockchain,
       txPool,
@@ -324,7 +391,10 @@ Hardhat Network's forking functionality only works with blocks from at least spu
   private _irregularStatesByBlockNumber: Map<string, Buffer> = new Map(); // blockNumber as BN.toString() => state root
 
   private constructor(
-    private readonly _vm: VM,
+    private readonly _ethereumJsVM: VM,
+    private readonly _rethnetVM: RethnetVM,
+    private readonly _rethnetVMId: number,
+    private readonly _useRethnet: boolean,
     private readonly _stateManager: StateManager,
     private readonly _blockchain: HardhatBlockchainInterface,
     private readonly _txPool: TxPool,
@@ -350,8 +420,9 @@ Hardhat Network's forking functionality only works with blocks from at least spu
       this.setUserProvidedNextBlockBaseFeePerGas(nextBlockBaseFee);
     }
 
+    // RETHNET-TODO: support tracing
     this._vmTracer = new VMTracer(
-      this._vm,
+      this._ethereumJsVM,
       this._stateManager.getContractCode.bind(this._stateManager),
       false
     );
@@ -406,14 +477,16 @@ Hardhat Network's forking functionality only works with blocks from at least spu
 
       if ("maxFeePerGas" in txParams) {
         tx = FeeMarketEIP1559Transaction.fromTxData(txParams, {
-          common: this._vm._common,
+          common: this._ethereumJsVM._common,
         });
       } else if ("accessList" in txParams) {
         tx = AccessListEIP2930Transaction.fromTxData(txParams, {
-          common: this._vm._common,
+          common: this._ethereumJsVM._common,
         });
       } else {
-        tx = Transaction.fromTxData(txParams, { common: this._vm._common });
+        tx = Transaction.fromTxData(txParams, {
+          common: this._ethereumJsVM._common,
+        });
       }
 
       return tx.sign(pk);
@@ -1221,6 +1294,7 @@ Hardhat Network's forking functionality only works with blocks from at least spu
     await this._persistIrregularWorldState();
   }
 
+  // RETHNET-TODO: support debug_traceTransaction
   public async traceTransaction(hash: Buffer, config: RpcDebugTracingConfig) {
     const block = await this.getBlockByTransactionHash(hash);
     if (block === undefined) {
@@ -1234,7 +1308,7 @@ Hardhat Network's forking functionality only works with blocks from at least spu
       async () => {
         const blockNumber = block.header.number.toNumber();
         const blockchain = this._blockchain;
-        let vm = this._vm;
+        let vm = this._ethereumJsVM;
         if (
           blockchain instanceof ForkBlockchain &&
           blockNumber <= blockchain.getForkBlockNumber().toNumber()
@@ -1252,8 +1326,8 @@ Hardhat Network's forking functionality only works with blocks from at least spu
           vm = new VM({
             common,
             activatePrecompiles: true,
-            stateManager: this._vm.stateManager,
-            blockchain: this._vm.blockchain,
+            stateManager: this._ethereumJsVM.stateManager,
+            blockchain: this._ethereumJsVM.blockchain,
           });
         }
 
@@ -1603,83 +1677,226 @@ Hardhat Network's forking functionality only works with blocks from at least spu
   ): Promise<MineBlockResult> {
     const parentBlock = await this.getLatestBlock();
 
-    const headerData: HeaderData = {
-      gasLimit: this.getBlockGasLimit(),
-      coinbase: this.getCoinbaseAddress(),
-      nonce: "0x0000000000000042",
-      timestamp: blockTimestamp,
-    };
+    if (this._useRethnet) {
+      const header_data: BuildBlockConfig["header_data"] = {
+        gas_limit: bnToHex(this.getBlockGasLimit()),
+        coinbase: this.getCoinbaseAddress().toString(),
+        nonce: "0x0000000000000042",
+        timestamp: blockTimestamp.toNumber(),
+      };
 
-    headerData.baseFeePerGas = await this.getNextBlockBaseFeePerGas();
-
-    const blockBuilder = await this._vm.buildBlock({
-      parentBlock,
-      headerData,
-      blockOpts: { calcDifficultyFromHeader: parentBlock.header },
-    });
-
-    try {
-      const traces: GatherTracesResult[] = [];
-
-      const blockGasLimit = this.getBlockGasLimit();
-      const minTxFee = this._getMinimalTransactionFee();
-      const pendingTxs = this._txPool.getPendingTransactions();
-      const transactionQueue = new TransactionQueue(
-        pendingTxs,
-        this._mempoolOrder,
-        headerData.baseFeePerGas
-      );
-
-      let tx = transactionQueue.getNextTransaction();
-
-      const results = [];
-      const receipts = [];
-
-      while (
-        blockGasLimit.sub(blockBuilder.gasUsed).gte(minTxFee) &&
-        tx !== undefined
-      ) {
-        if (
-          !this._isTxMinable(tx, headerData.baseFeePerGas) ||
-          tx.gasLimit.gt(blockGasLimit.sub(blockBuilder.gasUsed))
-        ) {
-          transactionQueue.removeLastSenderTransactions();
-        } else {
-          const txResult = await blockBuilder.addTransaction(tx);
-
-          traces.push(await this._gatherTraces(txResult.execResult));
-          results.push(txResult);
-          receipts.push(txResult.receipt);
-        }
-
-        tx = transactionQueue.getNextTransaction();
+      const nextBlockBaseFeePerGas = await this.getNextBlockBaseFeePerGas();
+      if (nextBlockBaseFeePerGas !== undefined) {
+        header_data.base_fee_per_gas = bnToHex(nextBlockBaseFeePerGas);
       }
 
-      const block = await blockBuilder.build();
+      const rethnetBlockBuilderId = await this._rethnetVM.build_block(
+        this._rethnetVMId,
+        {
+          parent_block_hash: bufferToHex(parentBlock.header.hash()),
+          parent_block_number: parentBlock.header.number.toNumber(),
+          header_data,
+        }
+      );
 
-      await this._txPool.updatePendingAndQueued();
+      try {
+        const traces: GatherTracesResult[] = [];
 
-      return {
-        block,
-        blockResult: {
-          results,
-          receipts,
-          stateRoot: block.header.stateRoot,
-          logsBloom: block.header.bloom,
-          receiptRoot: block.header.receiptTrie,
-          gasUsed: block.header.gasUsed,
-        },
-        traces,
+        const blockGasLimit = this.getBlockGasLimit();
+        const minTxFee = this._getMinimalTransactionFee();
+        const pendingTxs = this._txPool.getPendingTransactions();
+        const transactionQueue = new TransactionQueue(
+          pendingTxs,
+          this._mempoolOrder,
+          nextBlockBaseFeePerGas
+        );
+
+        let tx = transactionQueue.getNextTransaction();
+
+        const results = [];
+        const receipts = [];
+
+        let gasUsed = new BN(0);
+        while (blockGasLimit.sub(gasUsed).gte(minTxFee) && tx !== undefined) {
+          if (
+            !this._isTxMinable(tx, nextBlockBaseFeePerGas) ||
+            tx.gasLimit.gt(blockGasLimit.sub(gasUsed))
+          ) {
+            transactionQueue.removeLastSenderTransactions();
+          } else {
+            const txResult =
+              await this._rethnetVM.block_builder_add_transaction(
+                this._rethnetVMId,
+                rethnetBlockBuilderId,
+                {
+                  network: {
+                    chain_id: this._configChainId,
+                  },
+                  transaction: {
+                    origin: tx.getSenderAddress().toString(),
+                    gas_price:
+                      "gasPrice" in tx ? bnToHex(tx.gasPrice) : undefined,
+                    max_fee_per_gas:
+                      "maxFeePerGas" in tx
+                        ? bnToHex(tx.maxFeePerGas)
+                        : undefined,
+                    max_priority_fee_per_gas:
+                      "maxPriorityFeePerGas" in tx
+                        ? bnToHex(tx.maxPriorityFeePerGas)
+                        : undefined,
+                    access_list:
+                      "accessList" in tx
+                        ? toRethnetAccessList(tx.accessList)
+                        : undefined,
+                  },
+                  message: {
+                    gas_limit: bnToHex(tx.gasLimit),
+                    input: bufferToHex(tx.data),
+                    from: tx.getSenderAddress().toString(),
+                    value: bnToHex(tx.value),
+                    nonce: bnToHex(tx.nonce),
+                  },
+                  hardfork: this._selectHardfork(
+                    parentBlock.header.number.addn(1)
+                  ),
+                }
+              );
+
+            traces.push(await this._gatherTraces(txResult.execResult));
+            results.push(txResult);
+            receipts.push(txResult.receipt);
+          }
+
+          tx = transactionQueue.getNextTransaction();
+          const gasUsedHex = await this._rethnetVM.block_builder_gas_used(
+            this._rethnetVMId,
+            rethnetBlockBuilderId
+          );
+          gasUsed = new BN(toBuffer(gasUsedHex));
+        }
+
+        const block = await this._rethnetVM.block_builder_build(
+          this._rethnetVMId,
+          rethnetBlockBuilderId
+        );
+
+        const headerData = fromRethnetHeader(block.header);
+
+        await this._txPool.updatePendingAndQueued();
+
+        return {
+          block: Block.fromBlockData(
+            {
+              header: headerData,
+              transactions: block.transactions.map((t) =>
+                Transaction.fromSerializedTx(toBuffer(t))
+              ),
+              uncleHeaders: block.uncle_headers,
+            },
+            {
+              common: this._ethereumJsVM._common,
+            }
+          ),
+          blockResult: {
+            results,
+            receipts,
+            stateRoot: toBuffer(block.header.state_root),
+            logsBloom: toBuffer(block.header.logs_bloom),
+            receiptRoot: toBuffer(block.header.receipt_trie),
+            gasUsed: new BN(toBuffer(block.header.gas_used)),
+          },
+          traces,
+        };
+      } catch (err) {
+        await this._rethnetVM.block_builder_revert(
+          this._rethnetVMId,
+          rethnetBlockBuilderId
+        );
+        throw err;
+      }
+
+      return null as any;
+    } else {
+      const headerData: HeaderData = {
+        gasLimit: this.getBlockGasLimit(),
+        coinbase: this.getCoinbaseAddress(),
+        nonce: "0x0000000000000042",
+        timestamp: blockTimestamp,
       };
-    } catch (err) {
-      await blockBuilder.revert();
-      throw err;
+
+      headerData.baseFeePerGas = await this.getNextBlockBaseFeePerGas();
+
+      const blockBuilder = await this._ethereumJsVM.buildBlock({
+        parentBlock,
+        headerData,
+        blockOpts: { calcDifficultyFromHeader: parentBlock.header },
+      });
+
+      try {
+        const traces: GatherTracesResult[] = [];
+
+        const blockGasLimit = this.getBlockGasLimit();
+        const minTxFee = this._getMinimalTransactionFee();
+        const pendingTxs = this._txPool.getPendingTransactions();
+        const transactionQueue = new TransactionQueue(
+          pendingTxs,
+          this._mempoolOrder,
+          headerData.baseFeePerGas
+        );
+
+        let tx = transactionQueue.getNextTransaction();
+
+        const results = [];
+        const receipts = [];
+
+        while (
+          blockGasLimit.sub(blockBuilder.gasUsed).gte(minTxFee) &&
+          tx !== undefined
+        ) {
+          if (
+            !this._isTxMinable(tx, headerData.baseFeePerGas) ||
+            tx.gasLimit.gt(blockGasLimit.sub(blockBuilder.gasUsed))
+          ) {
+            transactionQueue.removeLastSenderTransactions();
+          } else {
+            const txResult = await blockBuilder.addTransaction(tx);
+
+            traces.push(await this._gatherTraces(txResult.execResult));
+            results.push(txResult);
+            receipts.push(txResult.receipt);
+          }
+
+          tx = transactionQueue.getNextTransaction();
+        }
+
+        const block = await blockBuilder.build();
+
+        await this._txPool.updatePendingAndQueued();
+
+        return {
+          block,
+          blockResult: {
+            results,
+            receipts,
+            stateRoot: block.header.stateRoot,
+            logsBloom: block.header.logsBloom,
+            receiptRoot: block.header.receiptTrie,
+            gasUsed: block.header.gasUsed,
+          },
+          traces,
+        };
+      } catch (err) {
+        await blockBuilder.revert();
+        throw err;
+      }
     }
   }
 
+  // RETHNET-TODO: how are we going to handle params like these after
+  // migrating to rethnet?
   private _getMinimalTransactionFee(): BN {
     // Typically 21_000 gas
-    return new BN(this._vm._common.param("gasPrices", "tx"));
+    return new BN(this._ethereumJsVM._common.param("gasPrices", "tx"));
   }
 
   private async _getFakeTransaction(
@@ -1693,18 +1910,18 @@ Hardhat Network's forking functionality only works with blocks from at least spu
 
     if ("maxFeePerGas" in txParams && txParams.maxFeePerGas !== undefined) {
       return new FakeSenderEIP1559Transaction(sender, txParams, {
-        common: this._vm._common,
+        common: this._ethereumJsVM._common,
       });
     }
 
     if ("accessList" in txParams && txParams.accessList !== undefined) {
       return new FakeSenderAccessListEIP2930Transaction(sender, txParams, {
-        common: this._vm._common,
+        common: this._ethereumJsVM._common,
       });
     }
 
     return new FakeSenderTransaction(sender, txParams, {
-      common: this._vm._common,
+      common: this._ethereumJsVM._common,
     });
   }
 
@@ -1917,7 +2134,7 @@ Hardhat Network's forking functionality only works with blocks from at least spu
     const receipts = getRpcReceiptOutputsFromLocalBlockExecution(
       block,
       runBlockResult,
-      shouldShowTransactionTypeForHardfork(this._vm._common)
+      shouldShowTransactionTypeForHardfork(this._ethereumJsVM._common)
     );
 
     this._blockchain.addTransactionReceipts(receipts);
@@ -1942,7 +2159,9 @@ Hardhat Network's forking functionality only works with blocks from at least spu
               getRpcBlock(
                 block,
                 td,
-                shouldShowTransactionTypeForHardfork(this._vm._common),
+                shouldShowTransactionTypeForHardfork(
+                  this._ethereumJsVM._common
+                ),
                 false
               )
             );
@@ -1954,7 +2173,7 @@ Hardhat Network's forking functionality only works with blocks from at least spu
         case Type.LOGS_SUBSCRIPTION:
           if (
             bloomFilter(
-              new Bloom(block.header.bloom),
+              new Bloom(block.header.logsBloom),
               filter.criteria!.addresses,
               filter.criteria!.normalizedTopics
             )
@@ -2174,78 +2393,129 @@ Hardhat Network's forking functionality only works with blocks from at least spu
     blockNumberOrPending: BN | "pending",
     forceBaseFeeZero = false
   ): Promise<EVMResult> {
-    const initialStateRoot = await this._stateManager.getStateRoot();
-
     let blockContext: Block | undefined;
-    let originalCommon: Common | undefined;
 
-    try {
-      if (blockNumberOrPending === "pending") {
-        // the new block has already been mined by _runInBlockContext hence we take latest here
-        blockContext = await this.getLatestBlock();
-      } else {
-        // We know that this block number exists, because otherwise
-        // there would be an error in the RPC layer.
-        const block = await this.getBlockByNumber(blockNumberOrPending);
-        assertHardhatInvariant(
-          block !== undefined,
-          "Tried to run a tx in the context of a non-existent block"
-        );
+    if (blockNumberOrPending === "pending") {
+      // the new block has already been mined by _runInBlockContext hence we take latest here
+      blockContext = await this.getLatestBlock();
+    } else {
+      // We know that this block number exists, because otherwise
+      // there would be an error in the RPC layer.
+      const block = await this.getBlockByNumber(blockNumberOrPending);
+      assertHardhatInvariant(
+        block !== undefined,
+        "Tried to run a tx in the context of a non-existent block"
+      );
 
-        blockContext = block;
+      blockContext = block;
 
-        // we don't need to add the tx to the block because runTx doesn't
-        // know anything about the txs in the current block
-      }
+      // we don't need to add the tx to the block because runTx doesn't
+      // know anything about the txs in the current block
+    }
 
-      // NOTE: This is a workaround of both an @ethereumjs/vm limitation, and
-      //   a bug in Hardhat Network.
-      //
-      // See: https://github.com/nomiclabs/hardhat/issues/1666
-      //
-      // If this VM is running with EIP1559 activated, and the block is not
-      // an EIP1559 one, this will crash, so we create a new one that has
-      // baseFeePerGas = 0.
-      //
-      // We also have an option to force the base fee to be zero,
-      // we don't want to debit any balance nor fail any tx when running an
-      // eth_call. This will make the BASEFEE option also return 0, which
-      // shouldn't. See: https://github.com/nomiclabs/hardhat/issues/1688
-      if (
-        this.isEip1559Active(blockNumberOrPending) &&
-        (blockContext.header.baseFeePerGas === undefined || forceBaseFeeZero)
-      ) {
-        blockContext = Block.fromBlockData(blockContext, {
-          freeze: false,
-          common: this._vm._common,
-        });
+    if (this._useRethnet) {
+      const blockHashes = await getLatestBlockHashes(
+        this._blockchain,
+        blockContext.header.number,
+        256
+      );
 
-        (blockContext.header as any).baseFeePerGas = new BN(0);
-      }
+      const result = await this._rethnetVM.run_call(this._rethnetVMId, {
+        network: {
+          chain_id: this._configChainId,
+        },
+        block: {
+          coinbase: blockContext.header.coinbase.toString(),
+          difficulty: bnToHex(blockContext.header.difficulty),
+          gas_limit: bnToHex(blockContext.header.gasLimit),
+          number: bnToHex(blockContext.header.number),
+          timestamp: bnToHex(blockContext.header.timestamp),
 
-      originalCommon = (this._vm as any)._common;
-      (this._vm as any)._common = new Common({
-        chain: {
-          // eslint-disable-next-line @typescript-eslint/dot-notation
-          ...this._vm._common["_chainParams"],
-          chainId: this._forkNetworkId ?? this._configChainId,
-          networkId: this._forkNetworkId ?? this._configNetworkId,
+          base_fee_per_gas:
+            blockContext.header.baseFeePerGas !== undefined
+              ? bnToHex(blockContext.header.baseFeePerGas)
+              : undefined,
+
+          block_hashes: blockHashes,
+        },
+        transaction: {
+          origin: tx.getSenderAddress().toString(),
+          gas_price: "gasPrice" in tx ? bnToHex(tx.gasPrice) : undefined,
+          max_fee_per_gas:
+            "maxFeePerGas" in tx ? bnToHex(tx.maxFeePerGas) : undefined,
+          max_priority_fee_per_gas:
+            "maxPriorityFeePerGas" in tx
+              ? bnToHex(tx.maxPriorityFeePerGas)
+              : undefined,
+          access_list:
+            "accessList" in tx ? toRethnetAccessList(tx.accessList) : undefined,
+        },
+        message: {
+          gas_limit: bnToHex(tx.gasLimit),
+          input: bufferToHex(tx.data),
+          from: tx.getSenderAddress().toString(),
+          value: bnToHex(tx.value),
+          nonce: bnToHex(tx.nonce),
         },
         hardfork: this._selectHardfork(blockContext.header.number),
       });
 
-      return await this._vm.runTx({
-        block: blockContext,
-        tx,
-        skipNonce: true,
-        skipBalance: true,
-        skipBlockGasLimitValidation: true,
-      });
-    } finally {
-      if (originalCommon !== undefined) {
-        (this._vm as any)._common = originalCommon;
+      return result;
+    } else {
+      const initialStateRoot = await this._stateManager.getStateRoot();
+
+      let originalCommon: Common | undefined;
+
+      try {
+        // NOTE: This is a workaround of both an @ethereumjs/vm limitation, and
+        //   a bug in Hardhat Network.
+        //
+        // See: https://github.com/nomiclabs/hardhat/issues/1666
+        //
+        // If this VM is running with EIP1559 activated, and the block is not
+        // an EIP1559 one, this will crash, so we create a new one that has
+        // baseFeePerGas = 0.
+        //
+        // We also have an option to force the base fee to be zero,
+        // we don't want to debit any balance nor fail any tx when running an
+        // eth_call. This will make the BASEFEE option also return 0, which
+        // shouldn't. See: https://github.com/nomiclabs/hardhat/issues/1688
+        if (
+          this.isEip1559Active(blockNumberOrPending) &&
+          (blockContext.header.baseFeePerGas === undefined || forceBaseFeeZero)
+        ) {
+          blockContext = Block.fromBlockData(blockContext, {
+            freeze: false,
+            common: this._ethereumJsVM._common,
+          });
+
+          (blockContext.header as any).baseFeePerGas = new BN(0);
+        }
+
+        originalCommon = (this._ethereumJsVM as any)._common;
+        (this._ethereumJsVM as any)._common = new Common({
+          chain: {
+            // eslint-disable-next-line @typescript-eslint/dot-notation
+            ...this._ethereumJsVM._common["_chainParams"],
+            chainId: this._forkNetworkId ?? this._configChainId,
+            networkId: this._forkNetworkId ?? this._configNetworkId,
+          },
+          hardfork: this._selectHardfork(blockContext.header.number),
+        });
+
+        return await this._ethereumJsVM.runTx({
+          block: blockContext,
+          tx,
+          skipNonce: true,
+          skipBalance: true,
+          skipBlockGasLimitValidation: true,
+        });
+      } finally {
+        if (originalCommon !== undefined) {
+          (this._ethereumJsVM as any)._common = originalCommon;
+        }
+        await this._stateManager.setStateRoot(initialStateRoot);
       }
-      await this._stateManager.setStateRoot(initialStateRoot);
     }
   }
 
@@ -2345,12 +2615,12 @@ Hardhat Network's forking functionality only works with blocks from at least spu
       blockNumberOrPending !== undefined &&
       blockNumberOrPending !== "pending"
     ) {
-      return this._vm._common.hardforkGteHardfork(
+      return this._ethereumJsVM._common.hardforkGteHardfork(
         this._selectHardfork(blockNumberOrPending),
         "london"
       );
     }
-    return this._vm._common.gteHardfork("london");
+    return this._ethereumJsVM._common.gteHardfork("london");
   }
 
   private async _getEstimateGasFeePriceFields(
@@ -2398,7 +2668,7 @@ Hardhat Network's forking functionality only works with blocks from at least spu
       this._forkBlockNumber === undefined ||
       blockNumber.gte(new BN(this._forkBlockNumber))
     ) {
-      return this._vm._common.hardfork() as HardforkName;
+      return this._ethereumJsVM._common.hardfork() as HardforkName;
     }
 
     if (this._hardforkActivations.size === 0) {
@@ -2459,4 +2729,33 @@ Hardhat Network's forking functionality only works with blocks from at least spu
       );
     }
   }
+}
+
+async function getLatestBlockHashes(
+  blockchain: HardhatBlockchainInterface,
+  latestBlockNumber: BN,
+  count: number
+): Promise<string[]> {
+  if (latestBlockNumber.isZero()) {
+    return [];
+  }
+
+  const latestBlock = await blockchain.getBlock(latestBlockNumber);
+
+  assertHardhatInvariant(latestBlock !== null, "Block should exist");
+
+  const result: string[] = [];
+
+  let blockNumberStart = latestBlockNumber.subn(count);
+  if (blockNumberStart.ltn(0)) {
+    blockNumberStart = new BN(0);
+  }
+
+  for (let i = blockNumberStart; i.lt(latestBlockNumber); i = i.addn(1)) {
+    const block = await blockchain.getBlock(i);
+    assertHardhatInvariant(block !== null, "Block should exist");
+    result.push(bufferToHex(block.hash()));
+  }
+
+  return result;
 }

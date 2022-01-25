@@ -763,7 +763,7 @@ describe("HardhatNode", () => {
         forkedNode["_vmTracer"].disableTracing();
 
         const afterBlockEvent = await runBlockAndGetAfterBlockEvent(
-          forkedNode["_vm"],
+          forkedNode["_ethereumJsVM"],
           {
             block,
             generate: true,
@@ -773,7 +773,7 @@ describe("HardhatNode", () => {
 
         const modifiedBlock = afterBlockEvent.block;
 
-        await forkedNode["_vm"].blockchain.putBlock(modifiedBlock);
+        await forkedNode["_ethereumJsVM"].blockchain.putBlock(modifiedBlock);
         await forkedNode["_saveBlockAsSuccessfullyRun"](
           modifiedBlock,
           afterBlockEvent
