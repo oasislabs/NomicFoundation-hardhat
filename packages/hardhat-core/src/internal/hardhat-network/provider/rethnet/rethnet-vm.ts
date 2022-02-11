@@ -6,14 +6,27 @@ import { bufferToHex } from "ethereumjs-util";
 
 /* eslint-disable @typescript-eslint/naming-convention */
 
+/**
+ * All strings are hex-encoded and 0x-prefixed values, unless otherwise
+ * specified
+ */
+
 interface GenesisBlock {
+  // 8 bytes
   nonce: string;
+  // number, in seconds
   timestamp: number;
+  // <= 32 bytes
   extra_data: string;
+  // number
   gas_limit: string;
+  // number
   difficulty: string;
+  // 32 bytes
   mix_hash: string;
+  // address
   coinbase: string;
+  // number
   base_fee_per_gas?: string;
 }
 
@@ -23,43 +36,69 @@ interface NetworkConfig {
 }
 
 interface AccountConfig {
+  // 32 bytes
   private_key: string;
+  // number, in wei
   initial_balance: string;
 }
 
 export interface BuildBlockConfig {
+  // 32 bytes
   parent_block_hash: string;
+  // number
   parent_block_number: number;
   header_data: {
+    // number
     gas_limit: string;
+    // address
     coinbase: string;
+    // 8 bytes
     nonce: string;
+    // number, in seconds
     timestamp: number;
+    // number
     base_fee_per_gas?: string;
   };
 }
 
 interface RethnetBlockHeader {
+  // 32 bytes
   parent_hash: string;
+  // 32 bytes
   uncle_hash: string;
+  // address
   coinbase: string;
+  // 32 bytes
   state_root: string;
+  // 32 bytes
   transactions_trie: string;
+  // 32 bytes
   receipt_trie: string;
+  // 256 bytes
   logs_bloom: string;
+  // number
   difficulty: string;
+  // number
   number: string;
+  // number
   gas_limit: string;
+  // number
   gas_used: string;
+  // number, in seconds
   timestamp: string;
+  // <= 32 bytes
   extra_data: string;
+  // 32 bytes
   mix_hash: string;
+  // 8 bytes
   nonce: string;
+  // number
   base_fee_per_gas?: string;
 }
 
 interface RethnetBlock {
   header: RethnetBlockHeader;
+  // 32 bytes each
   transactions: string[];
   uncle_headers: RethnetBlockHeader[];
 }
@@ -98,45 +137,64 @@ interface NetworkContext {
 }
 
 interface BlockContext {
+  // address
   coinbase: string;
+  // number
   difficulty: string;
+  // number
   gas_limit: string;
+  // number
   number: string;
+  // number, in seconds
   timestamp: string;
 
+  // number
   base_fee_per_gas?: string;
 
-  // RETHNET-TODO: this is very wasteful, and it will be even worse
-  // for a forked network
+  // RETHNET-TODO: using an array for `block_hash` is very wasteful, and it will
+  // be even worse for a forked network
   //
   // instead of this, we should have a sort of "callback" where rethnet
   // can ask hardhat for the hash of a block with a given number
   //
   // since we can't serialize a function, we need to figure out how to
   // do that kind of bi-directional communication
+
+  // 32 bytes each
   block_hashes: string[];
 }
 
 interface AccessListItem {
+  // address
   address: string;
+  // 32 bytes each
   storage_keys: string[];
 }
 
 type AccessList = AccessListItem[];
 
 interface TransactionContext {
+  // address
   origin: string;
+  // number
   gas_price?: string;
+  // number
   max_fee_per_gas?: string;
+  // number
   max_priority_fee_per_gas?: string;
   access_list?: AccessList;
 }
 
 interface MessageContext {
+  // number
   gas_limit: string;
+  // bytes, arbitrary size
   input: string;
+  // address
   from: string;
+  // number
   value: string;
+  // number
   nonce: string;
 }
 
@@ -238,20 +296,6 @@ export function getRethnet(): RethnetVM {
       _vm_id: number,
       _block_builder_id: number
     ): Promise<void> {},
-
-    // run tx
-    async run_tx(
-      _vm_id: number,
-      __context: {
-        network: NetworkContext;
-        block: RethnetBlockHeader;
-        transaction: TransactionContext;
-        message: MessageContext;
-        hardfork: string;
-      }
-    ): Promise<RunTxResult> {
-      return null as unknown as RunTxResult;
-    },
 
     // run call
     async run_call(
