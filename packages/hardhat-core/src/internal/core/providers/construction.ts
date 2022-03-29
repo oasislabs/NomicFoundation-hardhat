@@ -97,6 +97,7 @@ export function createProvider(
       hardhatNetConfig.chains,
       new ModulesLogger(hardhatNetConfig.loggingEnabled),
       accounts,
+      hardhatNetConfig.enabledEips,
       artifacts,
       hardhatNetConfig.allowUnlimitedContractSize,
       hardhatNetConfig.initialDate !== undefined

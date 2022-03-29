@@ -82,6 +82,7 @@ describe("HardhatNode", () => {
     mempoolOrder: "priority",
     coinbase: "0x0000000000000000000000000000000000000000",
     chains: defaultHardhatNetworkParams.chains,
+    enabledEips: [],
   };
   const gasPrice = 20;
   let node: HardhatNode;
@@ -744,6 +745,7 @@ describe("HardhatNode", () => {
           mempoolOrder: "priority",
           coinbase: "0x0000000000000000000000000000000000000000",
           chains: defaultHardhatNetworkParams.chains,
+          enabledEips: [],
         };
 
         const [common, forkedNode] = await HardhatNode.create(forkedNodeConfig);
@@ -946,6 +948,7 @@ describe("HardhatNode", () => {
       chains: defaultHardhatNetworkParams.chains,
       mempoolOrder: "priority",
       coinbase: "0x0000000000000000000000000000000000000000",
+      enabledEips: [],
     };
 
     describe("when forking with a default hardfork activation history", function () {
@@ -1112,6 +1115,7 @@ describe("HardhatNode", () => {
       chains: defaultHardhatNetworkParams.chains,
       mempoolOrder: "priority",
       coinbase: "0x0000000000000000000000000000000000000000",
+      enabledEips: [],
     };
     const [, hardhatNode] = await HardhatNode.create(nodeConfig);
 

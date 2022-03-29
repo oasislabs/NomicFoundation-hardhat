@@ -90,6 +90,7 @@ export class HardhatNetworkProvider
     private readonly _chains: HardhatNetworkChainsConfig,
     private readonly _logger: ModulesLogger,
     private readonly _genesisAccounts: GenesisAccount[] = [],
+    private readonly _enabledEips: number[],
     private readonly _artifacts?: Artifacts,
     private readonly _allowUnlimitedContractSize = false,
     private readonly _initialDate?: Date,
@@ -242,6 +243,7 @@ export class HardhatNetworkProvider
       networkId: this._networkId,
       initialDate: this._initialDate,
       forkConfig: this._forkConfig,
+      enabledEips: this._enabledEips,
       forkCachePath:
         this._forkConfig !== undefined ? this._forkCachePath : undefined,
       coinbase: this._coinbase,

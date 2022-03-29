@@ -32,6 +32,7 @@ interface CommonConfig {
   mempoolOrder: MempoolOrder;
   coinbase: string;
   chains: HardhatNetworkChainsConfig;
+  enabledEips: number[];
 }
 
 export type LocalNodeConfig = CommonConfig;

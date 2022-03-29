@@ -241,6 +241,10 @@ export class HardhatNode extends EventEmitter {
 
     const txPool = new TxPool(stateManager, new BN(blockGasLimit), common);
 
+    if (config.enabledEips.length > 0) {
+      common.setEIPs([...common.eips(), ...config.enabledEips]);
+    }
+
     const vm = new VM({
       common,
       activatePrecompiles: true,

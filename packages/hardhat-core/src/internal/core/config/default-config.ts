@@ -56,6 +56,7 @@ export const defaultHardhatNetworkParams: Omit<
   loggingEnabled: false,
   gasMultiplier: DEFAULT_GAS_MULTIPLIER,
   minGasPrice: new BN(0),
+  enabledEips: [],
   chains: new Map([
     [
       // block numbers below were taken from https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/common/src/chains

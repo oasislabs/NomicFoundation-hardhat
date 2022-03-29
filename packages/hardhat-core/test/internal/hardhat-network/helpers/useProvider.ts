@@ -92,6 +92,7 @@ export function useProvider({
       chains,
       this.logger,
       accounts,
+      [],
       undefined,
       allowUnlimitedContractSize,
       undefined,

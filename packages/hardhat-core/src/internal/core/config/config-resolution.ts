@@ -211,6 +211,7 @@ function resolveHardhatNetworkConfig(
     initialDate,
     minGasPrice,
     chains,
+    enabledEips: hardhatNetworkConfig.enabledEips ?? [],
   };
 
   // We do it this way because ts gets lost otherwise

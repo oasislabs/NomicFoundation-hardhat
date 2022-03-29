@@ -187,6 +187,7 @@ describe("Debug module", function () {
         defaultHardhatNetworkParams.chains,
         logger,
         DEFAULT_ACCOUNTS,
+        [],
         undefined,
         DEFAULT_ALLOW_UNLIMITED_CONTRACT_SIZE,
         undefined,

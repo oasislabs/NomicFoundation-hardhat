@@ -58,6 +58,7 @@ export interface HardhatNetworkUserConfig {
   forking?: HardhatNetworkForkingUserConfig;
   coinbase?: string;
   chains?: HardhatNetworkChainsUserConfig;
+  enabledEips?: number[];
 }
 
 export type HardhatNetworkAccountsUserConfig =
@@ -152,6 +153,7 @@ export interface HardhatNetworkConfig {
   forking?: HardhatNetworkForkingConfig;
   coinbase?: string;
   chains: HardhatNetworkChainsConfig;
+  enabledEips: number[];
 }
 
 export type HardhatNetworkAccountsConfig =
