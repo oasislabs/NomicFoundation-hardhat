@@ -17,7 +17,7 @@ function cleanup(ganacheChild) {
 }
 
 async function startGanache(args = []) {
-  const ganacheCliPath = require.resolve("ganache-cli/cli.js");
+  const ganacheCliPath = require.resolve("ganache/dist/node/cli.js");
 
   const ganacheChild = spawn("node", [ganacheCliPath, ...args]);
   console.time("Ganache spawn");

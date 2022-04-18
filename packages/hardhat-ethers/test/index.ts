@@ -151,7 +151,7 @@ describe("Ethers plugin", function () {
 
           assert.equal(
             result,
-            "0x1845faa75f53acb0c3e7247dcf294ce045c139722418dc9638709b54bafffa093591aeaaa195e7dc53f7e774c80e9a7f1371f0647a100d1c9e81db83d8ddd47801"
+            "0x1845faa75f53acb0c3e7247dcf294ce045c139722418dc9638709b54bafffa093591aeaaa195e7dc53f7e774c80e9a7f1371f0647a100d1c9e81db83d8ddd4781c"
           );
         });
 
@@ -1225,7 +1225,7 @@ describe("Ethers plugin", function () {
       const deployedGreeter: ethers.Contract = await Greeter.deploy();
 
       const readonlyContract = deployedGreeter.connect(
-        new ethers.providers.WebSocketProvider("ws://localhost:8545")
+        new ethers.providers.WebSocketProvider("ws://127.0.0.1:8545")
       );
       let emitted = false;
       readonlyContract.on("GreetingUpdated", () => {
