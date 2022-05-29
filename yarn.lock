@@ -1717,65 +1717,65 @@
   resolved "https://registry.yarnpkg.com/@humanwhocodes/object-schema/-/object-schema-1.2.1.tgz#b520529ec21d8e5945a1851dfd1c32e94e39ff45"
   integrity sha512-ZnQMnLV4e7hDlUvw8H+U8ASL02SS2Gn6+9Ac3wGGLIe7+je2AeAOxPY+izIPJDfFDb7eDjev0Us8MO1iFRN8hA==
 
-"@ignored/analyzer-darwin-arm64@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@ignored/analyzer-darwin-arm64/-/analyzer-darwin-arm64-0.0.3.tgz#6519a24f87eef38b844f47071c3384ab3834d139"
-  integrity sha512-0HsL/cX+lPYEjNn9KYKdEvb9wf6fbqXFidmDNWqogLDqTLzq7dRSL8poz2JasEAHyWlMHod1rteKVrogguarTg==
+"@ignored/analyzer-darwin-arm64@0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@ignored/analyzer-darwin-arm64/-/analyzer-darwin-arm64-0.0.4.tgz#a64465bb28d74753657ed3b09e41ee3d685e66f1"
+  integrity sha512-1JqQ9G8ihui1+sEjrmPIRuOoodt1DHi80J/Ob8j5l/pvrwUfw1Dv3QuxzcRL2LUgXos8z9QH+5CfVWt5BNBYMA==
 
-"@ignored/analyzer-darwin-x64@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@ignored/analyzer-darwin-x64/-/analyzer-darwin-x64-0.0.3.tgz#85e8d0fb588c3eab534a36a57f3abc90e16e1e32"
-  integrity sha512-TtA80DujB+V7JkqAkhhAhsIO7lHTus41cKY1Xb3/xsCtSToZTFe7TrpYpUNiAtbzA/eM/tVWrnEKtopidcFJQA==
+"@ignored/analyzer-darwin-x64@0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@ignored/analyzer-darwin-x64/-/analyzer-darwin-x64-0.0.4.tgz#1ba0839025e85b069868f2f1f607c07819b7f61a"
+  integrity sha512-WJokqdUb7NxAGQ2ymviCV/JasND2gJX6sECyTMbDsjfzP5RviBPmqh6mHc567m5bu+F+uiELZUalHcbwZz8C9w==
 
-"@ignored/analyzer-linux-arm64-gnu@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@ignored/analyzer-linux-arm64-gnu/-/analyzer-linux-arm64-gnu-0.0.3.tgz#d2e139b79cf7075a54b11e38edd588152a3166b9"
-  integrity sha512-1yZoR8wZCOV5LLXAUA+vyvP9XRjtgDRMxkCHKNpE9DLwgrDEeMJh8RWp3ptZQmIRF3pPHx9TdBMt64g2Zz1XHw==
+"@ignored/analyzer-linux-arm64-gnu@0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@ignored/analyzer-linux-arm64-gnu/-/analyzer-linux-arm64-gnu-0.0.4.tgz#4f21a2a0c1fd6a59c6d05975ff59e09776c16c7e"
+  integrity sha512-havLOdbQj8a62NMkC7RdqQXZQwHxNMCnNXlK8z7wd+AD1BWgpcSLHs0xurJ9zExb9zVcz6egLQUKO0sC4pl3Lw==
 
-"@ignored/analyzer-linux-arm64-musl@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@ignored/analyzer-linux-arm64-musl/-/analyzer-linux-arm64-musl-0.0.3.tgz#c14c13734bea10a8ef872d2e843232fb8b4df2d9"
-  integrity sha512-NaFUqxeR9BYznO+4zcufGMy71dYuyo8GHItLtMQVpVbx2fCKORHvMGN/aHQLcR+yi+uJBwzLrdX9ucA8TsGHew==
+"@ignored/analyzer-linux-arm64-musl@0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@ignored/analyzer-linux-arm64-musl/-/analyzer-linux-arm64-musl-0.0.4.tgz#4c3ed7e89393bfc11c3878a192ddc8d8b945998b"
+  integrity sha512-uTHXv5VH/RKDF6E/8o5uAUZQN68mnS+lxrfj0dgDCisbdmvMPwLbwJUlhX11sZR8Pj+xIvzvX4cEaT5bqsetgQ==
 
-"@ignored/analyzer-linux-x64-gnu@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@ignored/analyzer-linux-x64-gnu/-/analyzer-linux-x64-gnu-0.0.3.tgz#7ef8fbdfb6c8f74bcd144513ec06215612eea46e"
-  integrity sha512-JkrHCYJgOCqacvLVz9VhAVCNYHjgpQeHSpF8m8EItAfKaqYSGeK9Q3GE9yhEtMxCR97PZImfCeDtfRI9/nNQ+Q==
+"@ignored/analyzer-linux-x64-gnu@0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@ignored/analyzer-linux-x64-gnu/-/analyzer-linux-x64-gnu-0.0.4.tgz#2044d146fe2ad9f412df6c26df24228c28fafae0"
+  integrity sha512-XFLDLuUeNvbyHoS34pryijpdfgkMf0CnrxwWO8L60bfqttX+vi+ox671WeVS5dX6ryzByWL6ovERgMOGisbJwQ==
 
-"@ignored/analyzer-linux-x64-musl@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@ignored/analyzer-linux-x64-musl/-/analyzer-linux-x64-musl-0.0.3.tgz#254e0c2af08ff63e0e4d0b32ea169ee5a96e7980"
-  integrity sha512-Fcn2xsNRTOVYgUSaNFOnMnbyO7/tpIrnLB8o2/ENFSKUdzcQV9EYsqQusBZ3Mbv2BPMuuOT2Au/ErgAgTlUJVw==
+"@ignored/analyzer-linux-x64-musl@0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@ignored/analyzer-linux-x64-musl/-/analyzer-linux-x64-musl-0.0.4.tgz#6950e862ce8e90f23b9848399e86029c1540344c"
+  integrity sha512-s/bZ92atNiZPlDHlrUtGjmyUP3l9k15FJMzltzHN5BubXiSfn+ApEeDvr5u1jVbLqjMdZi0qW/nqgJ8rXHwjug==
 
-"@ignored/analyzer-win32-arm64-msvc@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@ignored/analyzer-win32-arm64-msvc/-/analyzer-win32-arm64-msvc-0.0.3.tgz#07befd0287fb556638f7f517d6745e7e7a96c1e0"
-  integrity sha512-sXDu5p+CemBgixgPLWqR6N911XfbsbyqbgD1jL3OqCckJ56m9pM8yByanHoY+SEmIB39Rdez21L4t75MWebVcQ==
+"@ignored/analyzer-win32-arm64-msvc@0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@ignored/analyzer-win32-arm64-msvc/-/analyzer-win32-arm64-msvc-0.0.4.tgz#c7eb4c042b721d50d009f9144139cec84d42bf38"
+  integrity sha512-w9rnBs0MmUuwd+Gq86mVUhCzeM57jLKx0hNKY4qp7J8SFYZtb7Sb0rcFPD02SPrKAVTed6aaeVbJrOvB+FL76A==
 
-"@ignored/analyzer-win32-ia32-msvc@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@ignored/analyzer-win32-ia32-msvc/-/analyzer-win32-ia32-msvc-0.0.3.tgz#9538f188a1663dd6c5c026c89cccb8b3aefbf07a"
-  integrity sha512-eYMdWf1AywTu5WYU/EMyrh9guZ2wnH5to9YM2keD1fJVgIVV1GCRgvSfTCsE8TpFpoytoPmdLAKPFmw8gfG/sA==
+"@ignored/analyzer-win32-ia32-msvc@0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@ignored/analyzer-win32-ia32-msvc/-/analyzer-win32-ia32-msvc-0.0.4.tgz#8d9faa3d9971b9c8fdf38f8f781c82ad74b1ba19"
+  integrity sha512-T/q0uGYMi1Me7t4USu0WE4J/ovYAopxold4uzX23R79t+SNsxZfSiW4FoGZN+tnqk22ONeD3OFP5j6gABtN4Pw==
 
-"@ignored/analyzer-win32-x64-msvc@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@ignored/analyzer-win32-x64-msvc/-/analyzer-win32-x64-msvc-0.0.3.tgz#03228861aa25392642bbcb7fa6571c9bb0752134"
-  integrity sha512-kSk5GMsU1JAmiW725rKdRWHLOU3c0yUkOd/sYsQPldtUdFwkMG8FaSd7mDz3sbkzQ0qIh0Ud85z6Cy1dZ+VGlQ==
+"@ignored/analyzer-win32-x64-msvc@0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@ignored/analyzer-win32-x64-msvc/-/analyzer-win32-x64-msvc-0.0.4.tgz#74cbb69d25624c626f58e7c1ff79b4b6fd4e8fad"
+  integrity sha512-wttDcpJ+EzAYfqf2bmVbsADE6cS4rGgooy8FG0zd/o6Vlu+la8468M5hu2FdlKeCW6hLUPm1YSz26Paeu1CmqA==
 
-"@ignored/analyzer@^0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@ignored/analyzer/-/analyzer-0.0.3.tgz#349e1c68211a61172f56d5267e7ce1d3be52c241"
-  integrity sha512-rsH6E9Lvn7JhcZqjcfkwnjgAShpXyUgbTOOsDafWXK2Vk16T+eJWZDrODQXYp2zp5KXU5nYigIFaLzm4XsNa5w==
+"@ignored/analyzer@^0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@ignored/analyzer/-/analyzer-0.0.4.tgz#9d3d04ac188b2e24da18f6a8902303810f631218"
+  integrity sha512-9Cy36LgmKsCJnbtHM+6d1RRAZOWt4B/cJ6nGKEdQa8k8BCZs9rJ9Rn3kgQpKf2TAi6K7xibauk9bmiXjS8NLkA==
   optionalDependencies:
-    "@ignored/analyzer-darwin-arm64" "0.0.3"
-    "@ignored/analyzer-darwin-x64" "0.0.3"
-    "@ignored/analyzer-linux-arm64-gnu" "0.0.3"
-    "@ignored/analyzer-linux-arm64-musl" "0.0.3"
-    "@ignored/analyzer-linux-x64-gnu" "0.0.3"
-    "@ignored/analyzer-linux-x64-musl" "0.0.3"
-    "@ignored/analyzer-win32-arm64-msvc" "0.0.3"
-    "@ignored/analyzer-win32-ia32-msvc" "0.0.3"
-    "@ignored/analyzer-win32-x64-msvc" "0.0.3"
+    "@ignored/analyzer-darwin-arm64" "0.0.4"
+    "@ignored/analyzer-darwin-x64" "0.0.4"
+    "@ignored/analyzer-linux-arm64-gnu" "0.0.4"
+    "@ignored/analyzer-linux-arm64-musl" "0.0.4"
+    "@ignored/analyzer-linux-x64-gnu" "0.0.4"
+    "@ignored/analyzer-linux-x64-musl" "0.0.4"
+    "@ignored/analyzer-win32-arm64-msvc" "0.0.4"
+    "@ignored/analyzer-win32-ia32-msvc" "0.0.4"
+    "@ignored/analyzer-win32-x64-msvc" "0.0.4"
 
 "@jest/types@^24.9.0":
   version "24.9.0"
