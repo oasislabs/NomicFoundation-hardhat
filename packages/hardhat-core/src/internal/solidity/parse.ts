@@ -29,34 +29,8 @@ export class Parser {
       return cacheResult;
     }
 
-    let result;
-    try {
-      const parser = require("@solidity-parser/parser");
-      const ast = parser.parse(fileContent, { tolerant: true });
-
-      const imports: string[] = [];
-      const versionPragmas: string[] = [];
-
-      parser.visit(ast, {
-        ImportDirective: (node: { path: string }) => imports.push(node.path),
-        PragmaDirective: (node: { name: string; value: string }) => {
-          if (node.name === "solidity") {
-            versionPragmas.push(node.value);
-          }
-        },
-      });
-
-      result = { imports, versionPragmas };
-    } catch (error) {
-      log(
-        "Failed to parse Solidity file to extract its imports, using regex fallback\n",
-        error
-      );
-      result = {
-        imports: findImportsWithRegexps(fileContent),
-        versionPragmas: findVersionPragmasWithRegexps(fileContent),
-      };
-    }
+    const { analyze } = require("@ignored/analyzer");
+    const result = analyze(fileContent);
 
     this._cache.set(contentHash, result);
 
