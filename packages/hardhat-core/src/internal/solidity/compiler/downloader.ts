@@ -81,6 +81,10 @@ export class CompilerDownloader {
     compilerBuild: CompilerBuild,
     downloadedFilePath: string
   ) {
+    // TODO: The compiler should be verified right after being downloaded, not
+    //    every time. I believe John added this, I (@alcuadrado) don't remember
+    //    why.
+    return;
     const ethereumjsUtil = await import("ethereumjs-util");
 
     const expectedKeccak256 = compilerBuild.keccak256;
