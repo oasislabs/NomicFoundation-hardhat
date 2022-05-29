@@ -106,7 +106,6 @@
     "@ignored/analyzer": "^0.0.3",
     "@metamask/eth-sig-util": "^4.0.0",
     "@sentry/node": "^5.18.1",
-    "@solidity-parser/parser": "^0.14.1",
     "@types/bn.js": "^5.1.0",
     "@types/lru-cache": "^5.1.0",
     "abort-controller": "^3.0.0",
