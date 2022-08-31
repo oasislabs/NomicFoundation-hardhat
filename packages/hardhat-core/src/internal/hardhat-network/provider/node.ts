@@ -26,10 +26,7 @@ import {
 } from "@nomicfoundation/ethereumjs-vm";
 import { EVM, EVMResult } from "@nomicfoundation/ethereumjs-evm";
 import { ERROR } from "@nomicfoundation/ethereumjs-evm/dist/exceptions";
-import {
-  DefaultStateManager,
-  StateManager,
-} from "@nomicfoundation/ethereumjs-statemanager";
+import { StateManager } from "@nomicfoundation/ethereumjs-statemanager";
 import { SignTypedDataVersion, signTypedData } from "@metamask/eth-sig-util";
 import chalk from "chalk";
 import debug from "debug";
@@ -124,6 +121,7 @@ import { makeStateTrie } from "./utils/makeStateTrie";
 import { putGenesisBlock } from "./utils/putGenesisBlock";
 import { txMapToArray } from "./utils/txMapToArray";
 import { RandomBufferGenerator } from "./utils/random";
+import { HardhatStateManager } from "./HardhatStateManager";
 
 type ExecResult = EVMResult["execResult"];
 
@@ -220,9 +218,11 @@ export class HardhatNode extends EventEmitter {
     } else {
       const stateTrie = await makeStateTrie(genesisAccounts);
 
-      stateManager = new DefaultStateManager({
-        trie: stateTrie,
-      });
+      const hardhatStateManager = new HardhatStateManager();
+
+      await hardhatStateManager.initializeGenesisAccounts(genesisAccounts);
+
+      stateManager = hardhatStateManager;
 
       const hardhatBlockchain = new HardhatBlockchain(common);
 
