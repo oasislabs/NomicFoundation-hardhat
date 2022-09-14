@@ -1,8 +1,10 @@
-use std::convert::TryFrom;
+mod db;
 
 use anyhow::anyhow;
+use db::CallbackDatabase;
 use napi::{
     bindgen_prelude::*,
+    threadsafe_function::{ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction},
     tokio::{
         self,
         sync::{
@@ -13,9 +15,11 @@ use napi::{
 };
 use napi_derive::napi;
 use rethnet_evm::{
-    AccountInfo, Bytecode, Bytes, CreateScheme, Database, DatabaseDebug, ExecutionResult,
-    LayeredDatabase, RethnetLayer, State, TransactTo, TxEnv, EVM, H160, H256, U256,
+    AccountInfo, Bytecode, Bytes, CreateScheme, Database, DatabaseCommit, DatabaseDebug,
+    ExecutionResult, LayeredDatabase, RethnetLayer, State, TransactTo, TxEnv, EVM, H160, H256,
+    U256,
 };
+use std::convert::TryFrom;
 
 #[napi(constructor)]
 pub struct Account {
@@ -28,6 +32,19 @@ pub struct Account {
     /// 256-bit code hash
     #[napi(readonly)]
     pub code_hash: Buffer,
+}
+
+impl From<AccountInfo> for Account {
+    fn from(account_info: AccountInfo) -> Self {
+        Self {
+            balance: BigInt {
+                sign_bit: false,
+                words: account_info.balance.0.to_vec(),
+            },
+            nonce: BigInt::from(account_info.nonce),
+            code_hash: Buffer::from(account_info.code_hash.as_bytes()),
+        }
+    }
 }
 
 #[napi(object)]
@@ -85,6 +102,21 @@ impl TryFrom<Transaction> for TxEnv {
 }
 
 #[napi]
+pub fn call_tsf(callback: JsFunction) -> Result<u32> {
+    let tsfn: ThreadsafeFunction<u32, ErrorStrategy::Fatal> = callback
+        .create_threadsafe_function(0, |ctx| {
+            ctx.env.create_uint32(ctx.value).map(|value| vec![value])
+        })?;
+
+    tsfn.call(
+        1,
+        napi::threadsafe_function::ThreadsafeFunctionCallMode::Blocking,
+    );
+
+    Ok(100)
+}
+
+#[napi]
 pub struct RethnetClient {
     request_sender: UnboundedSender<Request>,
 }
@@ -95,9 +127,46 @@ impl RethnetClient {
     pub fn new() -> Self {
         let (request_sender, request_receiver) = unbounded_channel();
 
-        tokio::spawn(Rethnet::run(request_receiver));
+        tokio::spawn(Rethnet::run(LayeredDatabase::default(), request_receiver));
 
         Self { request_sender }
+    }
+
+    #[napi(factory)]
+    pub fn with_callbacks(
+        #[napi(ts_arg_type = "(address: Buffer) => Account")] get_account_by_address_fn: JsFunction,
+        #[napi(ts_arg_type = "(address: Buffer, balance: BigInt) => void")]
+        insert_account_fn: JsFunction,
+    ) -> Result<Self> {
+        let get_account_by_address_fn: ThreadsafeFunction<H160, ErrorStrategy::Fatal> =
+            get_account_by_address_fn.create_threadsafe_function(
+                0,
+                |ctx: ThreadSafeCallContext<H160>| {
+                    ctx.env
+                        .create_buffer_copy(ctx.value.as_bytes())
+                        .map(|buffer| vec![buffer.into_raw()])
+                },
+            )?;
+
+        let insert_account_fn: ThreadsafeFunction<(H160, AccountInfo), ErrorStrategy::Fatal> =
+            insert_account_fn.create_threadsafe_function(
+                0,
+                |ctx: ThreadSafeCallContext<(H160, AccountInfo)>| {
+                    let address = ctx.env.create_buffer_copy(ctx.value.0.as_bytes())?;
+                    let balance = ctx
+                        .env
+                        .create_bigint_from_words(false, ctx.value.1.balance.0.to_vec())?;
+
+                    Ok(vec![address.into_unknown(), balance.into_unknown()?])
+                },
+            )?;
+
+        let db = CallbackDatabase::new(get_account_by_address_fn, insert_account_fn);
+        let (request_sender, request_receiver) = unbounded_channel();
+
+        tokio::spawn(Rethnet::run(db, request_receiver));
+
+        Ok(Self { request_sender })
     }
 
     #[napi]
@@ -175,16 +244,7 @@ impl RethnetClient {
                         ),
                     ))
                 },
-                |account_info| {
-                    Ok(Account {
-                        balance: BigInt {
-                            sign_bit: false,
-                            words: account_info.balance.0.to_vec(),
-                        },
-                        nonce: BigInt::from(account_info.nonce),
-                        code_hash: Buffer::from(account_info.code_hash.as_bytes()),
-                    })
-                },
+                |account_info| Ok(account_info.into()),
             )
     }
 
@@ -313,15 +373,15 @@ enum Request {
     },
 }
 
-struct Rethnet {
-    evm: EVM<LayeredDatabase<RethnetLayer>>,
+struct Rethnet<D: Database + DatabaseCommit + DatabaseDebug> {
+    evm: EVM<D>,
     request_receiver: UnboundedReceiver<Request>,
 }
 
-impl Rethnet {
-    pub fn new(request_receiver: UnboundedReceiver<Request>) -> Self {
+impl<D: Database<Error = anyhow::Error> + DatabaseCommit + DatabaseDebug> Rethnet<D> {
+    pub fn new(db: D, request_receiver: UnboundedReceiver<Request>) -> Self {
         let mut evm = EVM::new();
-        evm.database(LayeredDatabase::default());
+        evm.database(db);
 
         Self {
             evm,
@@ -329,8 +389,8 @@ impl Rethnet {
         }
     }
 
-    pub async fn run(request_receiver: UnboundedReceiver<Request>) -> anyhow::Result<()> {
-        let mut rethnet = Rethnet::new(request_receiver);
+    pub async fn run(db: D, request_receiver: UnboundedReceiver<Request>) -> anyhow::Result<()> {
+        let mut rethnet = Rethnet::new(db, request_receiver);
 
         rethnet.event_loop().await
     }

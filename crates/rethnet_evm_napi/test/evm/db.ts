@@ -1,11 +1,12 @@
-import { expect } from 'chai';
-import { DefaultStateManager } from '@nomicfoundation/ethereumjs-statemanager'
 import { AccountData, Address } from '@nomicfoundation/ethereumjs-util'
+import { expect } from 'chai';
+import { SyncStateManager } from 'hardhat/src/internal/hardhat-network/provider/SyncStateManager'
 
+import { HardhatDB } from '../../src/interop'
 import { RethnetClient, Account, Transaction } from '../../rethnet-evm'
 
 describe('HardhatDB', () => {
-    it('getAccountByAddress', async () => {
+    it('call', async () => {
         let rethnet = new RethnetClient();
         const caller = Address.fromString("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
 
@@ -43,4 +44,19 @@ describe('HardhatDB', () => {
         expect(createContractChanges["0x5fbdb2315678afecb367f032d93f642f64180aa3"].info.code_hash)
             .to.not.equal("0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470")
     });
+
+    it('getAccountByAddress', async () => {
+        let stateManager = new SyncStateManager();
+        let db = new HardhatDB(stateManager);
+
+        let rethnet = RethnetClient.withCallbacks(db.getAccountByAddress, db.insertAccount);
+
+        const caller = Address.fromString("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
+
+        // Add funds to caller
+        await rethnet.insertAccount(caller.buf);
+
+        const account = await rethnet.getAccountByAddress(caller.buf);
+        console.log(account);
+    })
 });

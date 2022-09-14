@@ -8,10 +8,15 @@
     "composite": true
   },
   "include": [
-    "./*.ts",
+    "./rethnet-evm.d.ts",
     "./test/**/*.ts"
   ],
   "exclude": [
     "./node_modules"
+  ],
+  "references": [
+    {
+      "path": "./src"
+    }
   ]
 }
