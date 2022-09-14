@@ -7,16 +7,17 @@ import fsPromises from "fs/promises";
 import {
   Artifact,
   Artifacts as IArtifacts,
+  ArtifactsExtension,
   BuildInfo,
   CompilerInput,
   CompilerOutput,
-  DebugFile,
+  DebugFile
 } from "../types";
 import {
   getFullyQualifiedName,
   isFullyQualifiedName,
   parseFullyQualifiedName,
-  findDistance,
+  findDistance
 } from "../utils/contract-names";
 import { replaceBackslashes } from "../utils/source-names";
 
@@ -25,7 +26,7 @@ import {
   BUILD_INFO_DIR_NAME,
   BUILD_INFO_FORMAT_VERSION,
   DEBUG_FILE_FORMAT_VERSION,
-  EDIT_DISTANCE_THRESHOLD,
+  EDIT_DISTANCE_THRESHOLD
 } from "./constants";
 import { HardhatError } from "./core/errors";
 import { ERRORS } from "./core/errors-list";
@@ -35,7 +36,7 @@ import {
   getAllFilesMatching,
   getAllFilesMatchingSync,
   getFileTrueCase,
-  getFileTrueCaseSync,
+  getFileTrueCaseSync
 } from "./util/fs-utils";
 
 const log = debug("hardhat:core:artifacts");
@@ -50,15 +51,34 @@ interface Cache {
 
 export class Artifacts implements IArtifacts {
   private _validArtifacts: Array<{ sourceName: string; artifacts: string[] }>;
+  private readonly _extensionsInPriorityOrder: ArtifactsExtension[];
 
-  // Undefined means that the cache is disabled.
+  /**
+   * This object stores the cache for the local artifacts only, and not for
+   * the extensions' artifacts.
+   *
+   * Mixing caching logic and extensions can get trick, so this class follows
+   * this policy: it does not apply any cache in public methods, and only
+   * applies any extension logic in those.
+   *
+   * Note: `undefined` means that the cache is disabled.
+   */
   private _cache?: Cache = {
     artifactNameToArtifactPathCache: new Map(),
-    artifactFQNToBuildInfoPathCache: new Map(),
+    artifactFQNToBuildInfoPathCache: new Map()
   };
 
-  constructor(private _artifactsPath: string) {
+  /**
+   * @param _artifactsPath The path to the local artifacts' directory.
+   * @param _extensions The ArtifactsExtensions in order of definition, which
+   *                    is lower to higher priority.
+   */
+  constructor(
+    private _artifactsPath: string,
+    extensions: ArtifactsExtension[]
+  ) {
     this._validArtifacts = [];
+    this._extensionsInPriorityOrder = extensions.reverse();
   }
 
   public addValidArtifacts(
@@ -68,21 +88,41 @@ export class Artifacts implements IArtifacts {
   }
 
   public async readArtifact(name: string): Promise<Artifact> {
-    const artifactPath = await this._getArtifactPath(name);
-    return fsExtra.readJson(artifactPath);
+    try {
+      const artifactPath = await this._getArtifactPath(name);
+      return await fsExtra.readJson(artifactPath);
+    } catch (error) {
+      if (
+        error instanceof HardhatError &&
+        error.number === ERRORS.ARTIFACTS.NOT_FOUND.number
+      ) {
+        for (const extension of this._extensionsInPriorityOrder) {
+          const artifact = await extension.readArtifact(name);
+          if (artifact !== undefined) {
+            return artifact;
+          }
+        }
+      }
+
+      // eslint-disable-next-line @nomiclabs/hardhat-internal-rules/only-hardhat-error
+      throw error;
+    }
   }
 
   public readArtifactSync(name: string): Artifact {
+    // TODO: fallback
     const artifactPath = this._getArtifactPathSync(name);
     return fsExtra.readJsonSync(artifactPath);
   }
 
   public async artifactExists(name: string): Promise<boolean> {
+    // TODO: fallback
     const artifactPath = await this._getArtifactPath(name);
     return fsExtra.pathExists(artifactPath);
   }
 
   public async getAllFullyQualifiedNames(): Promise<string[]> {
+    // TODO: Add all of them
     const paths = await this.getArtifactPaths();
     return paths.map((p) => this._getFullyQualifiedNameFromPath(p)).sort();
   }
@@ -90,91 +130,30 @@ export class Artifacts implements IArtifacts {
   public async getBuildInfo(
     fullyQualifiedName: string
   ): Promise<BuildInfo | undefined> {
-    let buildInfoPath =
-      this._cache?.artifactFQNToBuildInfoPathCache.get(fullyQualifiedName);
-
+    // TODO: Fallback
+    const buildInfoPath = await this._getBuildInfoPath(fullyQualifiedName);
     if (buildInfoPath === undefined) {
-      const artifactPath =
-        this.formArtifactPathFromFullyQualifiedName(fullyQualifiedName);
-
-      const debugFilePath = this._getDebugFilePath(artifactPath);
-      buildInfoPath = await this._getBuildInfoFromDebugFile(debugFilePath);
-
-      if (buildInfoPath === undefined) {
-        return undefined;
-      }
-
-      this._cache?.artifactFQNToBuildInfoPathCache.set(
-        fullyQualifiedName,
-        buildInfoPath
-      );
+      return undefined;
     }
 
     return fsExtra.readJSON(buildInfoPath);
   }
 
   public async getArtifactPaths(): Promise<string[]> {
-    const cached = this._cache?.artifactPaths;
-    if (cached !== undefined) {
-      return cached;
-    }
-
-    const buildInfosDir = path.join(this._artifactsPath, BUILD_INFO_DIR_NAME);
-
-    const paths = await getAllFilesMatching(
-      this._artifactsPath,
-      (f) =>
-        f.endsWith(".json") &&
-        !f.startsWith(buildInfosDir) &&
-        !f.endsWith(".dbg.json")
-    );
-
-    const result = paths.sort();
-
-    if (this._cache !== undefined) {
-      this._cache.artifactPaths = result;
-    }
-
+    // TODO: Add all of them
+    const result = await this._getArtifactPaths();
     return result;
   }
 
   public async getBuildInfoPaths(): Promise<string[]> {
-    const cached = this._cache?.buildInfoPaths;
-    if (cached !== undefined) {
-      return cached;
-    }
-
-    const paths = await getAllFilesMatching(
-      path.join(this._artifactsPath, BUILD_INFO_DIR_NAME),
-      (f) => f.endsWith(".json")
-    );
-
-    const result = paths.sort();
-
-    if (this._cache !== undefined) {
-      this._cache.buildInfoPaths = result;
-    }
-
+    // TODO: Add all of them
+    const result = await this._getBuildInfoPaths();
     return result;
   }
 
   public async getDebugFilePaths(): Promise<string[]> {
-    const cached = this._cache?.debugFilePaths;
-    if (cached !== undefined) {
-      return cached;
-    }
-
-    const paths = await getAllFilesMatching(
-      path.join(this._artifactsPath),
-      (f) => f.endsWith(".dbg.json")
-    );
-
-    const result = paths.sort();
-
-    if (this._cache !== undefined) {
-      this._cache.debugFilePaths = result;
-    }
-
+    // TODO: Add all of them
+    const result = await this._getDebugFilePaths();
     return result;
   }
 
@@ -196,7 +175,7 @@ export class Artifacts implements IArtifacts {
 
       await Promise.all([
         fsExtra.writeJSON(artifactPath, artifact, {
-          spaces: 2,
+          spaces: 2
         }),
         (async () => {
           if (pathToBuildInfo === undefined) {
@@ -211,9 +190,9 @@ export class Artifacts implements IArtifacts {
           );
 
           await fsExtra.writeJSON(debugFilePath, debugFile, {
-            spaces: 2,
+            spaces: 2
           });
-        })(),
+        })()
       ]);
     } finally {
       this.clearCache();
@@ -258,7 +237,7 @@ export class Artifacts implements IArtifacts {
         {
           const withoutOutput = JSON.stringify({
             ...buildInfo,
-            output: undefined,
+            output: undefined
           });
 
           // We write the JSON (without output) except the last }
@@ -269,11 +248,11 @@ export class Artifacts implements IArtifacts {
           const outputWithoutSourcesAndContracts = JSON.stringify({
             ...buildInfo.output,
             sources: undefined,
-            contracts: undefined,
+            contracts: undefined
           });
 
           // We start writing the output
-          await file.write(',"output":');
+          await file.write(",\"output\":");
 
           // Write the output object except for the last }
           await file.write(outputWithoutSourcesAndContracts.slice(0, -1));
@@ -286,7 +265,7 @@ export class Artifacts implements IArtifacts {
         }
 
         // Writing the sources
-        await file.write('"sources":{');
+        await file.write("\"sources\":{");
 
         let isFirst = true;
         for (const [name, value] of Object.entries(
@@ -305,7 +284,7 @@ export class Artifacts implements IArtifacts {
         await file.write("}");
 
         // Writing the contracts
-        await file.write(',"contracts":{');
+        await file.write(",\"contracts\":{");
 
         isFirst = true;
         for (const [name, value] of Object.entries(
@@ -394,6 +373,7 @@ export class Artifacts implements IArtifacts {
   }
 
   public clearCache() {
+    // TODO: Clear all of them
     // Avoid accidentally re-enabling the cache
     if (this._cache === undefined) {
       return;
@@ -401,11 +381,12 @@ export class Artifacts implements IArtifacts {
 
     this._cache = {
       artifactFQNToBuildInfoPathCache: new Map(),
-      artifactNameToArtifactPathCache: new Map(),
+      artifactNameToArtifactPathCache: new Map()
     };
   }
 
   public disableCache() {
+    // TODO: Disable all of them
     this._cache = undefined;
   }
 
@@ -453,7 +434,7 @@ export class Artifacts implements IArtifacts {
       _format: BUILD_INFO_FORMAT_VERSION,
       solcVersion,
       solcLongVersion,
-      input,
+      input
     });
 
     return createNonCryptographicHashBasedIdentifier(
@@ -500,7 +481,7 @@ export class Artifacts implements IArtifacts {
       solcVersion,
       solcLongVersion,
       input,
-      output,
+      output
     };
   }
 
@@ -512,10 +493,75 @@ export class Artifacts implements IArtifacts {
 
     const debugFile: DebugFile = {
       _format: DEBUG_FILE_FORMAT_VERSION,
-      buildInfo: relativePathToBuildInfo,
+      buildInfo: relativePathToBuildInfo
     };
 
     return debugFile;
+  }
+
+  private async _getArtifactPaths(): Promise<string[]> {
+    const cached = this._cache?.artifactPaths;
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const buildInfosDir = path.join(this._artifactsPath, BUILD_INFO_DIR_NAME);
+
+    const paths = await getAllFilesMatching(
+      this._artifactsPath,
+      (f) =>
+        f.endsWith(".json") &&
+        !f.startsWith(buildInfosDir) &&
+        !f.endsWith(".dbg.json")
+    );
+
+    const result = paths.sort();
+
+    if (this._cache !== undefined) {
+      this._cache.artifactPaths = result;
+    }
+
+    return result;
+  }
+
+  private async _getBuildInfoPaths(): Promise<string[]> {
+    const cached = this._cache?.buildInfoPaths;
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const paths = await getAllFilesMatching(
+      path.join(this._artifactsPath, BUILD_INFO_DIR_NAME),
+      (f) => f.endsWith(".json")
+    );
+
+    const result = paths.sort();
+
+    if (this._cache !== undefined) {
+      this._cache.buildInfoPaths = result;
+    }
+
+    return result;
+  }
+
+  private async _getDebugFilePaths(): Promise<string[]> {
+    const cached = this._cache?.debugFilePaths;
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const paths = await getAllFilesMatching(
+      path.join(this._artifactsPath),
+      (f) => f.endsWith(".dbg.json")
+    );
+
+    const result = paths.sort();
+
+    if (this._cache !== undefined) {
+      this._cache.debugFilePaths = result;
+    }
+
+    return result;
   }
 
   private _getArtifactPathsSync(): string[] {
@@ -599,7 +645,7 @@ export class Artifacts implements IArtifacts {
       if (artifactPath !== trueCasePath) {
         throw new HardhatError(ERRORS.ARTIFACTS.WRONG_CASING, {
           correct: this._getFullyQualifiedNameFromPath(trueCasePath),
-          incorrect: fullyQualifiedName,
+          incorrect: fullyQualifiedName
         });
       }
 
@@ -656,7 +702,7 @@ Please replace "${contractName}" for the correct contract name wherever you are 
 
     throw new HardhatError(ERRORS.ARTIFACTS.NOT_FOUND, {
       contractName: fullyQualifiedName,
-      suggestion: this._formatSuggestions(similarNames, fullyQualifiedName),
+      suggestion: this._formatSuggestions(similarNames, fullyQualifiedName)
     });
   }
 
@@ -677,7 +723,7 @@ Please replace "${contractName}" for the correct contract name wherever you are 
 
     throw new HardhatError(ERRORS.ARTIFACTS.NOT_FOUND, {
       contractName,
-      suggestion: this._formatSuggestions(similarNames, contractName),
+      suggestion: this._formatSuggestions(similarNames, contractName)
     });
   }
 
@@ -770,7 +816,7 @@ Please replace "${contractName}" for the correct contract name wherever you are 
       if (artifactPath !== trueCasePath) {
         throw new HardhatError(ERRORS.ARTIFACTS.WRONG_CASING, {
           correct: this._getFullyQualifiedNameFromPath(trueCasePath),
-          incorrect: fullyQualifiedName,
+          incorrect: fullyQualifiedName
         });
       }
 
@@ -810,7 +856,7 @@ Please replace "${contractName}" for the correct contract name wherever you are 
 
       throw new HardhatError(ERRORS.ARTIFACTS.MULTIPLE_FOUND, {
         contractName,
-        candidates: candidates.join(os.EOL),
+        candidates: candidates.join(os.EOL)
       });
     }
 
@@ -865,6 +911,28 @@ Please replace "${contractName}" for the correct contract name wherever you are 
 
     return undefined;
   }
+
+  private async _getBuildInfoPath(fullyQualifiedName: string) {
+    let buildInfoPath =
+      this._cache?.artifactFQNToBuildInfoPathCache.get(fullyQualifiedName);
+
+    if (buildInfoPath === undefined) {
+      const artifactPath =
+        this.formArtifactPathFromFullyQualifiedName(fullyQualifiedName);
+
+      const debugFilePath = this._getDebugFilePath(artifactPath);
+      buildInfoPath = await this._getBuildInfoFromDebugFile(debugFilePath);
+
+      if (buildInfoPath === undefined) {
+        return undefined;
+      }
+
+      this._cache?.artifactFQNToBuildInfoPathCache.set(
+        fullyQualifiedName,
+        buildInfoPath
+      );
+    }
+  }
 }
 
 /**
@@ -913,6 +981,6 @@ export function getArtifactFromContractOutput(
     bytecode,
     deployedBytecode,
     linkReferences,
-    deployedLinkReferences,
+    deployedLinkReferences
   };
 }
