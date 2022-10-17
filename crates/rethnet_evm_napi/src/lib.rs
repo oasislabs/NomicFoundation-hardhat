@@ -3,26 +3,24 @@ mod db;
 mod sync;
 mod threadsafe_function;
 
+use crate::db::GetBlockHashByBlockNumber;
+use rethnet_evm::Bytecode;
 use std::{fmt::Debug, str::FromStr};
 
-use db::{CheckpointCall, RevertCall};
 use napi::{bindgen_prelude::*, JsUnknown, NapiRaw};
 use napi_derive::napi;
 use rethnet_evm::{
-    sync::Client, AccountInfo, Bytes, CreateScheme, HashMap, LayeredDatabase, TransactTo, TxEnv,
-    H160, H256, U256,
+    sync::Client, AccountInfo, BlockEnv, Bytes, CfgEnv, CreateScheme, LayeredDatabase, TransactTo,
+    TxEnv, H160, H256, U256,
 };
-use secp256k1::{PublicKey, Secp256k1, SecretKey};
-use sha3::{Digest, Keccak256};
 
 use crate::{
     cast::TryCast,
     db::{
-        CallbackDatabase, CommitCall, GetAccountByAddressCall, GetAccountStorageSlotCall,
-        GetStorageRootCall, InsertAccountCall, SetAccountBalanceCall, SetAccountCodeCall,
-        SetAccountNonceCall, SetAccountStorageSlotCall,
+        CallbackDatabase, GetAccountByAddressCall, GetAccountStorageSlotCall,
+        GetCodeByCodeHashCall, GetStorageRootCall,
     },
-    sync::{await_promise, await_void_promise, handle_error},
+    sync::{await_promise, handle_error},
     threadsafe_function::{ThreadSafeCallContext, ThreadsafeFunction},
 };
 
@@ -66,12 +64,6 @@ impl From<AccountInfo> for Account {
                 .map(|code| Buffer::from(code.bytes().as_ref())),
         }
     }
-}
-
-fn public_key_to_address(public_key: PublicKey) -> H160 {
-    let hash = Keccak256::digest(&public_key.serialize_uncompressed()[1..]);
-    // Only take the lower 160 bits of the hash
-    H160::from_slice(&hash[12..])
 }
 
 #[napi(object)]
@@ -136,6 +128,18 @@ pub struct Transaction {
     pub chain_id: Option<BigInt>,
 }
 
+#[napi(object)]
+pub struct Block {
+    pub number: BigInt,
+    pub timestamp: BigInt,
+}
+
+#[napi(object)]
+pub struct Host {
+    pub chain_id: BigInt,
+    pub allow_unlimited_contract_size: bool,
+}
+
 impl TryFrom<Transaction> for TxEnv {
     type Error = napi::Error;
 
@@ -170,7 +174,7 @@ impl TryFrom<Transaction> for TxEnv {
                 .map_or(2u64.pow(63), |limit| limit.get_u64().1),
             gas_price: value
                 .gas_price
-                .map_or(Ok(U256::from(1)), BigInt::try_cast)?,
+                .map_or(Ok(U256::from(0)), BigInt::try_cast)?,
             gas_priority_fee: value
                 .gas_priority_fee
                 .map_or(Ok(None), |fee| BigInt::try_cast(fee).map(Some))?,
@@ -180,6 +184,34 @@ impl TryFrom<Transaction> for TxEnv {
             chain_id: value.chain_id.map(|chain_id| chain_id.get_u64().1),
             nonce: value.nonce.map(|nonce| nonce.get_u64().1),
             access_list,
+        })
+    }
+}
+
+impl TryFrom<Block> for BlockEnv {
+    type Error = napi::Error;
+
+    fn try_from(value: Block) -> std::result::Result<Self, Self::Error> {
+        Ok(Self {
+            number: U256::from(value.number.get_u64().1),
+            timestamp: U256::from(value.timestamp.get_u64().1),
+            ..Self::default()
+        })
+    }
+}
+
+impl TryFrom<Host> for CfgEnv {
+    type Error = napi::Error;
+
+    fn try_from(value: Host) -> std::result::Result<Self, Self::Error> {
+        Ok(Self {
+            chain_id: U256::from(value.chain_id.get_u64().1),
+            limit_contract_code_size: if value.allow_unlimited_contract_size {
+                Some(usize::MAX)
+            } else {
+                Some(0x6000)
+            },
+            ..Self::default()
         })
     }
 }
@@ -276,61 +308,16 @@ impl Rethnet {
     #[napi(factory)]
     pub fn with_callbacks(
         env: Env,
-        #[napi(ts_arg_type = "() => Promise<void>")] commit_fn: JsFunction,
-        #[napi(ts_arg_type = "() => Promise<void>")] checkpoint_fn: JsFunction,
-        #[napi(ts_arg_type = "() => Promise<void>")] revert_fn: JsFunction,
         #[napi(ts_arg_type = "(address: Buffer) => Promise<Account>")]
         get_account_by_address_fn: JsFunction,
         #[napi(ts_arg_type = "(address: Buffer, index: bigint) => Promise<bigint>")]
         get_account_storage_slot_fn: JsFunction,
         #[napi(ts_arg_type = "() => Promise<Buffer>")] get_storage_root_fn: JsFunction,
-        #[napi(ts_arg_type = "(address: Buffer, account: Account) => Promise<void>")]
-        insert_account_fn: JsFunction,
-        #[napi(ts_arg_type = "(address: Buffer, balance: bigint) => Promise<void>")]
-        set_account_balance_fn: JsFunction,
-        #[napi(ts_arg_type = "(address: Buffer, code: Buffer) => Promise<void>")]
-        set_account_code_fn: JsFunction,
-        #[napi(ts_arg_type = "(address: Buffer, nonce: bigint) => Promise<void>")]
-        set_account_nonce_fn: JsFunction,
-        #[napi(ts_arg_type = "(address: Buffer, index: bigint, value: bigint) => Promise<void>")]
-        set_account_storage_slot_fn: JsFunction,
+        #[napi(ts_arg_type = "(codeHash: Buffer) => Promise<Buffer>")]
+        get_code_by_code_hash_fn: JsFunction,
+        #[napi(ts_arg_type = "(blockNumber: bigint) => Promise<Buffer>")]
+        get_block_hash_by_block_number_fn: JsFunction,
     ) -> napi::Result<Self> {
-        let commit_fn = ThreadsafeFunction::create(
-            env.raw(),
-            unsafe { commit_fn.raw() },
-            0,
-            |ctx: ThreadSafeCallContext<CommitCall>| {
-                let sender = ctx.value.sender.clone();
-                let promise = ctx.callback.call::<JsUnknown>(None, &[])?;
-                let result = await_void_promise(ctx.env, promise, ctx.value.sender);
-                handle_error(sender, result)
-            },
-        )?;
-
-        let checkpoint_fn = ThreadsafeFunction::create(
-            env.raw(),
-            unsafe { checkpoint_fn.raw() },
-            0,
-            |ctx: ThreadSafeCallContext<CheckpointCall>| {
-                let sender = ctx.value.sender.clone();
-                let promise = ctx.callback.call::<JsUnknown>(None, &[])?;
-                let result = await_void_promise(ctx.env, promise, ctx.value.sender);
-                handle_error(sender, result)
-            },
-        )?;
-
-        let revert_fn = ThreadsafeFunction::create(
-            env.raw(),
-            unsafe { revert_fn.raw() },
-            0,
-            |ctx: ThreadSafeCallContext<RevertCall>| {
-                let sender = ctx.value.sender.clone();
-                let promise = ctx.callback.call::<JsUnknown>(None, &[])?;
-                let result = await_void_promise(ctx.env, promise, ctx.value.sender);
-                handle_error(sender, result)
-            },
-        )?;
-
         let get_account_by_address_fn = ThreadsafeFunction::create(
             env.raw(),
             unsafe { get_account_by_address_fn.raw() },
@@ -386,168 +373,47 @@ impl Rethnet {
             },
         )?;
 
-        let insert_account_fn = ThreadsafeFunction::create(
+        let get_code_by_code_hash_fn = ThreadsafeFunction::create(
             env.raw(),
-            unsafe { insert_account_fn.raw() },
+            unsafe { get_code_by_code_hash_fn.raw() },
             0,
-            |ctx: ThreadSafeCallContext<InsertAccountCall>| {
+            |ctx: ThreadSafeCallContext<GetCodeByCodeHashCall>| {
                 let sender = ctx.value.sender.clone();
-                let address = ctx
-                    .env
-                    .create_buffer_copy(ctx.value.address.as_bytes())?
-                    .into_raw();
+                let code_hash = ctx.env.create_buffer_copy(ctx.value.code_hash.as_bytes())?;
 
-                let mut account = ctx.env.create_object()?;
+                let promise = ctx.callback.call(None, &[code_hash.into_raw()])?;
 
-                let balance = ctx
-                    .env
-                    .create_bigint_from_words(false, ctx.value.account_info.balance.0.to_vec())?;
-                account.set_named_property("balance", balance)?;
+                let result = await_promise::<Buffer, Bytecode>(ctx.env, promise, ctx.value.sender);
 
-                let nonce = ctx
-                    .env
-                    .create_bigint_from_u64(ctx.value.account_info.nonce)?;
-                account.set_named_property("nonce", nonce)?;
-
-                let code_hash = ctx
-                    .env
-                    .create_buffer_copy(ctx.value.account_info.code_hash.as_bytes())?
-                    .into_raw();
-                account.set_named_property("codeHash", code_hash)?;
-
-                if let Some(code) = ctx.value.account_info.code {
-                    let code = ctx
-                        .env
-                        .create_buffer_copy(code.bytes().as_ref())?
-                        .into_raw();
-
-                    account.set_named_property("code", code)?;
-                } else {
-                    account.set_named_property("code", ctx.env.get_null()?)?;
-                }
-
-                let promise = ctx
-                    .callback
-                    .call(None, &[address.into_unknown(), account.into_unknown()])?;
-
-                let result = await_void_promise(ctx.env, promise, ctx.value.sender);
                 handle_error(sender, result)
             },
         )?;
 
-        let set_account_balance_fn = ThreadsafeFunction::create(
+        let get_block_hash_by_block_number_fn = ThreadsafeFunction::create(
             env.raw(),
-            unsafe { set_account_balance_fn.raw() },
+            unsafe { get_block_hash_by_block_number_fn.raw() },
             0,
-            |ctx: ThreadSafeCallContext<SetAccountBalanceCall>| {
+            |ctx: ThreadSafeCallContext<GetBlockHashByBlockNumber>| {
                 let sender = ctx.value.sender.clone();
-                let address = ctx
+
+                let block_number = ctx
                     .env
-                    .create_buffer_copy(ctx.value.address.as_bytes())?
-                    .into_raw();
+                    .create_bigint_from_words(false, ctx.value.block_number.0.to_vec())?;
 
-                let balance = ctx
-                    .env
-                    .create_bigint_from_words(false, ctx.value.balance.0.to_vec())?;
+                let promise = ctx.callback.call(None, &[block_number.into_unknown()?])?;
 
-                let promise = ctx
-                    .callback
-                    .call(None, &[address.into_unknown(), balance.into_unknown()?])?;
+                let result = await_promise::<Buffer, H256>(ctx.env, promise, ctx.value.sender);
 
-                let result = await_void_promise(ctx.env, promise, ctx.value.sender);
-                handle_error(sender, result)
-            },
-        )?;
-
-        let set_account_code_fn = ThreadsafeFunction::create(
-            env.raw(),
-            unsafe { set_account_code_fn.raw() },
-            0,
-            |ctx: ThreadSafeCallContext<SetAccountCodeCall>| {
-                let sender = ctx.value.sender.clone();
-                let address = ctx
-                    .env
-                    .create_buffer_copy(ctx.value.address.as_bytes())?
-                    .into_raw();
-
-                let code = ctx
-                    .env
-                    .create_buffer_copy(ctx.value.code.bytes().as_ref())?
-                    .into_raw();
-
-                let promise = ctx.callback.call(None, &[address, code])?;
-                let result = await_void_promise(ctx.env, promise, ctx.value.sender);
-                handle_error(sender, result)
-            },
-        )?;
-
-        let set_account_nonce_fn = ThreadsafeFunction::create(
-            env.raw(),
-            unsafe { set_account_nonce_fn.raw() },
-            0,
-            |ctx: ThreadSafeCallContext<SetAccountNonceCall>| {
-                let sender = ctx.value.sender.clone();
-                let address = ctx
-                    .env
-                    .create_buffer_copy(ctx.value.address.as_bytes())?
-                    .into_raw();
-
-                let nonce = ctx.env.create_bigint_from_u64(ctx.value.nonce)?;
-
-                let promise = ctx
-                    .callback
-                    .call(None, &[address.into_unknown(), nonce.into_unknown()?])?;
-
-                let result = await_void_promise(ctx.env, promise, ctx.value.sender);
-                handle_error(sender, result)
-            },
-        )?;
-
-        let set_account_storage_slot_fn = ThreadsafeFunction::create(
-            env.raw(),
-            unsafe { set_account_storage_slot_fn.raw() },
-            0,
-            |ctx: ThreadSafeCallContext<SetAccountStorageSlotCall>| {
-                let sender = ctx.value.sender.clone();
-                let address = ctx
-                    .env
-                    .create_buffer_copy(ctx.value.address.as_bytes())?
-                    .into_raw();
-
-                let index = ctx
-                    .env
-                    .create_bigint_from_words(false, ctx.value.index.0.to_vec())?;
-
-                let value = ctx
-                    .env
-                    .create_bigint_from_words(false, ctx.value.value.0.to_vec())?;
-
-                let promise = ctx.callback.call(
-                    None,
-                    &[
-                        address.into_unknown(),
-                        index.into_unknown()?,
-                        value.into_unknown()?,
-                    ],
-                )?;
-
-                let result = await_void_promise(ctx.env, promise, ctx.value.sender);
                 handle_error(sender, result)
             },
         )?;
 
         let db = CallbackDatabase::new(
-            commit_fn,
-            checkpoint_fn,
-            revert_fn,
             get_account_by_address_fn,
             get_account_storage_slot_fn,
             get_storage_root_fn,
-            insert_account_fn,
-            set_account_balance_fn,
-            set_account_code_fn,
-            set_account_nonce_fn,
-            set_account_storage_slot_fn,
+            get_code_by_code_hash_fn,
+            get_block_hash_by_block_number_fn,
         );
 
         Ok(Self {
@@ -555,154 +421,19 @@ impl Rethnet {
         })
     }
 
-    #[napi(factory)]
-    pub fn with_genesis_accounts(accounts: Vec<GenesisAccount>) -> napi::Result<Self> {
-        let context = Secp256k1::signing_only();
-        let genesis_accounts = accounts
-            .into_iter()
-            .map(|account| {
-                let private_key = account
-                    .private_key
-                    .strip_prefix("0x")
-                    .unwrap_or(&account.private_key);
-
-                let secret_key = SecretKey::from_str(private_key)
-                    .map_err(|e| napi::Error::new(Status::InvalidArg, e.to_string()))?;
-
-                let address = public_key_to_address(secret_key.public_key(&context));
-                account.balance.try_cast().map(|balance| {
-                    let account_info = AccountInfo {
-                        balance,
-                        ..Default::default()
-                    };
-
-                    (address, account_info)
-                })
-            })
-            .collect::<Result<HashMap<H160, AccountInfo>>>()?;
-
-        Ok(Self {
-            client: Client::with_genesis_accounts(genesis_accounts),
-        })
-    }
-
     #[napi]
-    pub async fn dry_run(&self, transaction: Transaction) -> Result<TransactionResult> {
-        let transaction = transaction.try_into()?;
-        self.client.dry_run(transaction).await.try_into()
-    }
-
-    #[napi]
-    pub async fn run(&self, transaction: Transaction) -> Result<ExecutionResult> {
-        let transaction = transaction.try_into()?;
-        self.client.run(transaction).await.try_into()
-    }
-
-    #[napi]
-    pub async fn checkpoint(&self) -> Result<()> {
-        self.client
-            .checkpoint()
-            .await
-            .map_err(|e| napi::Error::new(Status::GenericFailure, e.to_string()))
-    }
-
-    #[napi]
-    pub async fn revert(&self) -> Result<()> {
-        self.client
-            .revert()
-            .await
-            .map_err(|e| napi::Error::new(Status::GenericFailure, e.to_string()))
-    }
-
-    #[napi]
-    pub async fn get_account_by_address(&self, address: Buffer) -> Result<Option<Account>> {
-        let address = H160::from_slice(&address);
-        self.client
-            .get_account_by_address(address)
-            .await
-            .map_or_else(
-                |e| Err(napi::Error::new(Status::GenericFailure, e.to_string())),
-                |account_info| Ok(account_info.map(Account::from)),
-            )
-    }
-
-    #[napi]
-    pub async fn guarantee_transaction(&self, transaction: Transaction) -> Result<()> {
-        let transaction = transaction.try_into()?;
-
-        self.client
-            .guarantee_transaction(transaction)
-            .await
-            .map_err(|e| napi::Error::new(Status::GenericFailure, e.to_string()))
-    }
-
-    #[napi]
-    pub async fn insert_account(&self, address: Buffer) -> Result<()> {
-        let address = H160::from_slice(&address);
-        self.client
-            .insert_account(address, AccountInfo::default())
-            .await
-            .map_err(|e| napi::Error::new(Status::GenericFailure, e.to_string()))
-    }
-
-    #[napi]
-    pub async fn insert_block(&self, block_number: BigInt, block_hash: Buffer) -> Result<()> {
-        let block_number = BigInt::try_cast(block_number)?;
-        let block_hash = H256::from_slice(&block_hash);
-
-        self.client
-            .insert_block(block_number, block_hash)
-            .await
-            .map_err(|e| napi::Error::new(Status::GenericFailure, e.to_string()))
-    }
-
-    #[napi]
-    pub async fn set_account_balance(&self, address: Buffer, balance: BigInt) -> Result<()> {
-        let address = H160::from_slice(&address);
-        let balance = BigInt::try_cast(balance)?;
-
-        self.client
-            .set_account_balance(address, balance)
-            .await
-            .map_err(|e| napi::Error::new(Status::GenericFailure, e.to_string()))
-    }
-
-    #[napi]
-    pub async fn set_account_code(&self, address: Buffer, code: Buffer) -> Result<()> {
-        let address = H160::from_slice(&address);
-        let code = Bytes::copy_from_slice(&code);
-
-        self.client
-            .set_account_code(address, code)
-            .await
-            .map_err(|e| napi::Error::new(Status::GenericFailure, e.to_string()))
-    }
-
-    #[napi]
-    pub async fn set_account_nonce(&self, address: Buffer, nonce: BigInt) -> Result<()> {
-        let address = H160::from_slice(&address);
-        let nonce = nonce.get_u64().1;
-
-        self.client
-            .set_account_nonce(address, nonce)
-            .await
-            .map_err(|e| napi::Error::new(Status::GenericFailure, e.to_string()))
-    }
-
-    #[napi]
-    pub async fn set_account_storage_slot(
+    pub async fn dry_run(
         &self,
-        address: Buffer,
-        index: BigInt,
-        value: BigInt,
-    ) -> Result<()> {
-        let address = H160::from_slice(&address);
-        let index = BigInt::try_cast(index)?;
-        let value = BigInt::try_cast(value)?;
-
+        transaction: Transaction,
+        block: Block,
+        host: Host,
+    ) -> Result<TransactionResult> {
+        let transaction: TxEnv = transaction.try_into()?;
+        let block = block.try_into()?;
+        let host = host.try_into()?;
         self.client
-            .set_account_storage_slot(address, index, value)
+            .dry_run(transaction, block, host)
             .await
-            .map_err(|e| napi::Error::new(Status::GenericFailure, e.to_string()))
+            .try_into()
     }
 }
