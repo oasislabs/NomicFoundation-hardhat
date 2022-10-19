@@ -48,7 +48,22 @@ interface Cache {
   artifactFQNToBuildInfoPathCache: Map<string, string>;
 }
 
-export class Artifacts implements IArtifacts {
+class SyncArtifactsImpl {
+  protected readArtifactSync(artifactPath: string): Artifact {
+    return fsExtra.readJsonSync(artifactPath);
+  }
+}
+
+class AsyncArtifactsImpl extends SyncArtifactsImpl {
+  protected async readArtifact(artifactPath: string): Promise<Artifact> {
+    return super.readArtifactSync(artifactPath);
+  }
+  protected async artifactPathExists(artifactPath: string): Promise<boolean> {
+    return fsExtra.pathExists(artifactPath);
+  }
+}
+
+export class Artifacts extends AsyncArtifactsImpl implements IArtifacts {
   private _validArtifacts: Array<{ sourceName: string; artifacts: string[] }>;
 
   // Undefined means that the cache is disabled.
@@ -58,6 +73,7 @@ export class Artifacts implements IArtifacts {
   };
 
   constructor(private _artifactsPath: string) {
+    super();
     this._validArtifacts = [];
   }
 
@@ -69,17 +85,17 @@ export class Artifacts implements IArtifacts {
 
   public async readArtifact(name: string): Promise<Artifact> {
     const artifactPath = await this._getArtifactPath(name);
-    return fsExtra.readJson(artifactPath);
+    return super.readArtifact(artifactPath);
   }
 
   public readArtifactSync(name: string): Artifact {
     const artifactPath = this._getArtifactPathSync(name);
-    return fsExtra.readJsonSync(artifactPath);
+    return super.readArtifactSync(artifactPath);
   }
 
   public async artifactExists(name: string): Promise<boolean> {
     const artifactPath = await this._getArtifactPath(name);
-    return fsExtra.pathExists(artifactPath);
+    return super.artifactPathExists(artifactPath);
   }
 
   public async getAllFullyQualifiedNames(): Promise<string[]> {
