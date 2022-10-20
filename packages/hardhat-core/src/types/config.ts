@@ -57,6 +57,7 @@ export interface HardhatNetworkUserConfig {
   forking?: HardhatNetworkForkingUserConfig;
   coinbase?: string;
   chains?: HardhatNetworkChainsUserConfig;
+  confidential?: boolean;
 }
 
 export type HardhatNetworkAccountsUserConfig =
@@ -107,6 +108,7 @@ export interface HttpNetworkUserConfig {
   timeout?: number;
   httpHeaders?: { [name: string]: string };
   accounts?: HttpNetworkAccountsUserConfig;
+  confidential?: boolean;
 }
 
 export interface NetworksConfig {
@@ -153,6 +155,7 @@ export interface HardhatNetworkConfig {
   coinbase?: string;
   chains: HardhatNetworkChainsConfig;
   allowBlocksWithSameTimestamp?: boolean;
+  confidential?: boolean;
 }
 
 export type HardhatNetworkAccountsConfig =
@@ -190,6 +193,7 @@ export interface HttpNetworkConfig {
   timeout: number;
   httpHeaders: { [name: string]: string };
   accounts: HttpNetworkAccountsConfig;
+  confidential?: boolean;
 }
 
 export type HttpNetworkAccountsConfig =

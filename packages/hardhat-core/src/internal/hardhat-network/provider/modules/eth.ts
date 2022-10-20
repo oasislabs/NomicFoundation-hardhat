@@ -14,6 +14,7 @@ import {
 } from "@nomicfoundation/ethereumjs-util";
 import * as t from "io-ts";
 import cloneDeep from "lodash/cloneDeep";
+import * as cbor from 'cborg';
 
 import { BoundExperimentalHardhatNetworkMessageTraceHook } from "../../../../types";
 import { RpcAccessList } from "../../../core/jsonrpc/types/access-list";
@@ -346,17 +347,30 @@ export class EthModule {
 
     const blockNumberOrPending = await this._resolveNewBlockTag(blockTag);
 
-    const callParams = await this._rpcCallRequestToNodeCallParams(rpcCall);
+    const originCallParams = await this._rpcCallRequestToNodeCallParams(rpcCall);
 
+    let callParams: CallParams;
+
+    if (this._node.isConfidential()) {
+      // TODO: still need to consider the case of unsigned calls
+      const { data: encryptData, leash, signature } = cbor.decode(originCallParams.data);
+      const data = new Buffer(cbor.encode(encryptData).buffer);
+      callParams = {
+	...originCallParams,
+	data,
+      };
+    } else {
+      callParams = originCallParams;
+    }
     const {
       result: returnData,
       trace,
       error,
       consoleLogMessages,
     } = await this._node.runCall(callParams, blockNumberOrPending);
-
+    
     const code = await this._node.getCodeFromTrace(trace, blockNumberOrPending);
-
+    
     this._logger.logCallTrace(
       callParams,
       code,
@@ -364,7 +378,7 @@ export class EthModule {
       consoleLogMessages,
       error
     );
-
+    
     await this._runHardhatNetworkMessageTraceHooks(trace, true);
 
     if (error !== undefined && this._throwOnCallFailures) {

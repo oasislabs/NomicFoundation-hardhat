@@ -390,7 +390,8 @@ Hardhat Network's forking functionality only works with blocks from at least spu
     private _forkBlockNumber?: bigint,
     private _forkBlockHash?: string,
     nextBlockBaseFee?: bigint,
-    private _forkClient?: JsonRpcClient
+    private _forkClient?: JsonRpcClient,
+    private _confidential?: boolean | undefined
   ) {
     super();
 
@@ -742,6 +743,14 @@ Hardhat Network's forking functionality only works with blocks from at least spu
     return this._txPool.getBlockGasLimit();
   }
 
+  public getPublicKey(): Uint8Array {
+    return this._vm.publicKey;
+  }
+
+  public isConfidential(): boolean | undefined {
+    return this._confidential;
+  }
+  
   public async estimateGas(
     callParams: CallParams,
     blockNumberOrPending: bigint | "pending"
