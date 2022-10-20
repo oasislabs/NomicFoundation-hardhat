@@ -118,7 +118,17 @@ export async function createProvider(
           paths !== undefined ? getForkCacheDirPath(paths) : undefined,
       },
       new ModulesLogger(hardhatNetConfig.loggingEnabled),
-      artifacts
+      artifacts,
+      accounts,
+      hardhatNetConfig.allowUnlimitedContractSize,
+      hardhatNetConfig.initialDate !== undefined
+        ? parseDateString(hardhatNetConfig.initialDate)
+        : undefined,
+      experimentalHardhatNetworkMessageTraceHooks,
+      forkConfig,
+      paths !== undefined ? getForkCacheDirPath(paths) : undefined,
+      hardhatNetConfig.coinbase,
+      hardhatNetConfig.confidential
     );
   } else {
     const HttpProvider = importProvider<

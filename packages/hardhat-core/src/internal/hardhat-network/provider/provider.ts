@@ -33,6 +33,7 @@ import { EthModule } from "./modules/eth";
 import { EvmModule } from "./modules/evm";
 import { HardhatModule } from "./modules/hardhat";
 import { ModulesLogger } from "./modules/logger";
+import { OasisModule } from "./modules/oasis";
 import { PersonalModule } from "./modules/personal";
 import { NetModule } from "./modules/net";
 import { Web3Module } from "./modules/web3";
@@ -94,6 +95,7 @@ export class HardhatNetworkProvider
   private _hardhatModule?: HardhatModule;
   private _debugModule?: DebugModule;
   private _personalModule?: PersonalModule;
+  private _oasisModule?: OasisModule;
   private readonly _mutex = new Mutex();
   // this field is not used here but it's used in the tests
   private _common?: Common;
@@ -101,7 +103,15 @@ export class HardhatNetworkProvider
   constructor(
     private readonly _config: HardhatNetworkProviderConfig,
     private readonly _logger: ModulesLogger,
-    private readonly _artifacts?: Artifacts
+    private readonly _artifacts?: Artifacts,
+    private readonly _genesisAccounts: GenesisAccount[] = [],
+    private readonly _allowUnlimitedContractSize = false,
+    private readonly _initialDate?: Date,
+    private readonly _experimentalHardhatNetworkMessageTraceHooks: BoundExperimentalHardhatNetworkMessageTraceHook[] = [],
+    private _forkConfig?: ForkConfig,
+    private readonly _forkCachePath?: string,
+    private readonly _coinbase = DEFAULT_COINBASE,
+    private readonly _confidential?: boolean | undefined
   ) {
     super();
   }
@@ -224,6 +234,10 @@ export class HardhatNetworkProvider
       return this._personalModule!.processRequest(method, params);
     }
 
+    if (method.startsWith("oasis_")) {
+      return this._oasisModule!.processRequest(method, params);
+    }
+
     throw new MethodNotFoundError(`Method ${method} not found`);
   }
 
@@ -253,6 +267,7 @@ export class HardhatNetworkProvider
       coinbase: this._config.coinbase ?? DEFAULT_COINBASE,
       chains: this._config.chains,
       allowBlocksWithSameTimestamp: this._config.allowBlocksWithSameTimestamp,
+      confidential: this._confidential,
     };
 
     const [common, node] = await HardhatNode.create(config);
@@ -291,6 +306,7 @@ export class HardhatNetworkProvider
     );
     this._debugModule = new DebugModule(node);
     this._personalModule = new PersonalModule(node);
+    this._oasisModule = new OasisModule(node);
 
     this._forwardNodeEvents(node);
   }

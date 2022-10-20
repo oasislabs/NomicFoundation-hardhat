@@ -14,6 +14,11 @@ import {
 } from "@nomicfoundation/ethereumjs-util";
 import * as t from "io-ts";
 import cloneDeep from "lodash/cloneDeep";
+import * as cbor from "cborg";
+import * as ethers from "ethers-v5";
+import { _TypedDataEncoder } from "@ethersproject/hash";
+import { cipher, signedCalls } from "@oasisprotocol/sapphire-paratime";
+import { hexlify } from "@ethersproject/bytes";
 
 import { BoundExperimentalHardhatNetworkMessageTraceHook } from "../../../../types";
 import { RpcAccessList } from "../../../core/jsonrpc/types/access-list";
@@ -346,8 +351,28 @@ export class EthModule {
 
     const blockNumberOrPending = await this._resolveNewBlockTag(blockTag);
 
-    const callParams = await this._rpcCallRequestToNodeCallParams(rpcCall);
+    const originCallParams = await this._rpcCallRequestToNodeCallParams(
+      rpcCall
+    );
 
+    let callParams: CallParams;
+
+    if (this._node.confidential && originCallParams.to !== null) {
+      const {
+        data: encryptData,
+        leash,
+        signature,
+      } = cbor.decode(originCallParams.data);
+      await this._verifySignedCall(rpcCall, encryptData, leash, signature);
+
+      const data = new Buffer(cbor.encode(encryptData));
+      callParams = {
+        ...originCallParams,
+        data,
+      };
+    } else {
+      callParams = originCallParams;
+    }
     const {
       result: returnData,
       trace,
@@ -356,7 +381,6 @@ export class EthModule {
     } = await this._node.runCall(callParams, blockNumberOrPending);
 
     const code = await this._node.getCodeFromTrace(trace, blockNumberOrPending);
-
     this._logger.logCallTrace(
       callParams,
       code,
@@ -364,7 +388,6 @@ export class EthModule {
       consoleLogMessages,
       error
     );
-
     await this._runHardhatNetworkMessageTraceHooks(trace, true);
 
     if (error !== undefined && this._throwOnCallFailures) {
@@ -375,6 +398,69 @@ export class EthModule {
     }
 
     return bufferToRpcData(returnData.value);
+  }
+
+  private async _verifySignedCall(
+    rpcCall: RpcCallRequest,
+    encryptData: cipher.Envelope,
+    leash: signedCalls.Leash,
+    signature: Uint8Array
+  ): Promise<void> {
+    // construct the EthCall with the plain callData
+    const { format, body: envelopeBody } = encryptData;
+    let plainData: Uint8Array;
+    if (format === cipher.Kind.X25519DeoxysII && "nonce" in envelopeBody) {
+      const { nonce: deoxysiiNonce, data: envelopeData, pk } = envelopeBody;
+      const aead = cipher.X25519DeoxysII.fromSecretKey(
+        this._node.getSecretKey(),
+        pk
+      );
+      plainData = await aead.decryptCallData(deoxysiiNonce, envelopeData);
+    } else {
+      plainData = envelopeBody as Uint8Array;
+    }
+    const ethCall = await this._rpcCallRequestToEthCallParams(
+      rpcCall,
+      plainData
+    );
+
+    // first verify signature
+    const chainId = this._common.chainId();
+    const { domain, types } = signedCalls.signedCallEIP712Params(
+      Number(chainId)
+    );
+    const digest = _TypedDataEncoder.hash(
+      domain,
+      types,
+      signedCalls.makeSignableCall(ethCall, leash)
+    );
+    const signerAddress = ethers.utils.recoverAddress(
+      digest,
+      hexlify(signature)
+    );
+    if (signerAddress.toLowerCase() !== ethCall.from.toLowerCase())
+      throw new Error("signer != caller");
+
+    // next, verify the leash nonce
+
+    const nonce = await this._node.getNextConfirmedNonce(
+      new Address(toBuffer(ethCall.from)),
+      "pending"
+    );
+    if (nonce > leash.nonce) throw new Error("stale nonce");
+
+    // then, verify the leash block hash
+
+    const leashBlockNumber = BigInt(leash.block_number);
+    const block = await this._node.getBlockByNumber(leashBlockNumber);
+    if (block === undefined) throw new Error("base block not found");
+    if (!block.hash().equals(Buffer.from(leash.block_hash)))
+      throw new Error("unexpected base block");
+
+    // last, verify the block range
+    const blockDelta = this._node.getLatestBlockNumber() - leashBlockNumber;
+    if (blockDelta > leash.block_range)
+      throw new Error("current block out of range");
   }
 
   // eth_chainId
@@ -1269,6 +1355,23 @@ export class EthModule {
       gasPrice: rpcCall.gasPrice,
       maxFeePerGas: rpcCall.maxFeePerGas,
       maxPriorityFeePerGas: rpcCall.maxPriorityFeePerGas,
+    };
+  }
+
+  private async _rpcCallRequestToEthCallParams(
+    rpcCall: RpcCallRequest,
+    plainData: Uint8Array
+  ): Promise<signedCalls.EthCall> {
+    return {
+      from:
+        rpcCall.from !== undefined
+          ? bufferToHex(rpcCall.from)
+          : bufferToHex(await this._getDefaultCallFrom()),
+      to: rpcCall.to !== undefined ? bufferToHex(rpcCall.to) : zeroAddress(),
+      data: hexlify(plainData),
+      value: rpcCall.value,
+      gasLimit: rpcCall.gas,
+      gasPrice: rpcCall.gasPrice,
     };
   }
 

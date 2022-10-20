@@ -1,7 +1,7 @@
 import type { ReturnData } from "./return-data";
 
 import { Block } from "@nomicfoundation/ethereumjs-block";
-import { RunBlockResult } from "@nomicfoundation/ethereumjs-vm";
+import { RunBlockResult } from "@oasislabs/ethereumjs-vm";
 
 import { HARDHAT_MEMPOOL_SUPPORTED_ORDERS } from "../../constants";
 import { BuildInfo, HardhatNetworkChainsConfig } from "../../../types";
@@ -32,6 +32,7 @@ interface CommonConfig {
   coinbase: string;
   chains: HardhatNetworkChainsConfig;
   allowBlocksWithSameTimestamp: boolean;
+  confidential?: boolean;
 }
 
 export type LocalNodeConfig = CommonConfig;

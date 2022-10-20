@@ -1,5 +1,5 @@
 {
-  "name": "hardhat",
+  "name": "@oasislabs/hardhat",
   "version": "2.16.1",
   "author": "Nomic Labs LLC",
   "license": "MIT",
@@ -19,16 +19,17 @@
     "task-runner",
     "solidity"
   ],
-  "bin": {
-    "hardhat": "internal/cli/bootstrap.js"
-  },
   "engines": {
     "node": ">=14.0.0"
+  },
+  "bin": {
+    "hardhat": "internal/cli/bootstrap.js"
   },
   "scripts": {
     "lint": "yarn prettier --check && yarn eslint",
     "lint:fix": "yarn prettier --write && yarn eslint --fix",
     "eslint": "eslint 'src/**/*.ts' 'test/**/*.ts'",
+    "format": "eslint 'src/**/*.ts' 'test/**/*.ts' --fix",
     "prettier": "prettier \"**/*.{js,md,json}\"",
     "test": "mocha --recursive \"test/**/*.ts\"",
     "test:except-tracing": "mocha --recursive \"test/**/*.ts\" --invert --grep \"Stack traces\"",
@@ -87,7 +88,6 @@
     "eslint-plugin-no-only-tests": "3.0.0",
     "eslint-plugin-prettier": "3.4.0",
     "ethers": "^6.1.0",
-    "ethers-v5": "npm:ethers@5",
     "mocha": "^10.0.0",
     "prettier": "2.4.1",
     "rimraf": "^3.0.2",
@@ -98,6 +98,8 @@
   },
   "dependencies": {
     "@ethersproject/abi": "^5.1.2",
+    "@ethersproject/bytes": "^5.7.0",
+    "@ethersproject/hash": "^5.7.0",
     "@metamask/eth-sig-util": "^4.0.0",
     "@nomicfoundation/ethereumjs-block": "5.0.1",
     "@nomicfoundation/ethereumjs-blockchain": "7.0.1",
@@ -108,8 +110,9 @@
     "@nomicfoundation/ethereumjs-trie": "6.0.1",
     "@nomicfoundation/ethereumjs-tx": "5.0.1",
     "@nomicfoundation/ethereumjs-util": "9.0.1",
-    "@nomicfoundation/ethereumjs-vm": "7.0.1",
     "@nomicfoundation/solidity-analyzer": "^0.1.0",
+    "@oasislabs/ethereumjs-vm": "^6.0.0",
+    "@oasisprotocol/sapphire-paratime": "^1.0.13",
     "@sentry/node": "^5.18.1",
     "@types/bn.js": "^5.1.0",
     "@types/lru-cache": "^5.1.0",
@@ -117,6 +120,7 @@
     "adm-zip": "^0.4.16",
     "aggregate-error": "^3.0.0",
     "ansi-escapes": "^4.3.0",
+    "cborg": "^1.9.5",
     "chalk": "^2.4.2",
     "chokidar": "^3.4.0",
     "ci-info": "^2.0.0",
@@ -125,6 +129,7 @@
     "env-paths": "^2.2.0",
     "ethereum-cryptography": "^1.0.3",
     "ethereumjs-abi": "^0.6.8",
+    "ethers-v5": "npm:ethers@5",
     "find-up": "^2.1.0",
     "fp-ts": "1.19.3",
     "fs-extra": "^7.0.1",
