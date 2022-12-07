@@ -369,7 +369,6 @@ export class EthModule {
     } = await this._node.runCall(callParams, blockNumberOrPending);
 
     const code = await this._node.getCodeFromTrace(trace, blockNumberOrPending);
-    
     this._logger.logCallTrace(
       callParams,
       code,
@@ -377,7 +376,6 @@ export class EthModule {
       consoleLogMessages,
       error
     );
-    
     await this._runHardhatNetworkMessageTraceHooks(trace, true);
 
     if (error !== undefined && this._throwOnCallFailures) {
