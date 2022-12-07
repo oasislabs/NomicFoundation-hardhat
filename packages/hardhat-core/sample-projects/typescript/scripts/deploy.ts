@@ -1,4 +1,5 @@
 import { ethers } from "hardhat";
+import * as sapphire from '@oasisprotocol/sapphire-paratime'
 
 async function main() {
   const currentTimestampInSeconds = Math.round(Date.now() / 1000);
@@ -6,8 +7,8 @@ async function main() {
   const unlockTime = currentTimestampInSeconds + ONE_YEAR_IN_SECS;
 
   const lockedAmount = ethers.utils.parseEther("1");
-
-  const Lock = await ethers.getContractFactory("Lock");
+  const [owner] = await ethers.getSigners();
+  const Lock = await ethers.getContractFactory("Lock", sapphire.wrap(owner));
   const lock = await Lock.deploy(unlockTime, { value: lockedAmount });
 
   await lock.deployed();
