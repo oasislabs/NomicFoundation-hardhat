@@ -13,7 +13,7 @@ Join our [Hardhat Support Discord server](https://hardhat.org/discord) to stay u
 To install Hardhat, go to an empty folder, initialize an `npm` project (i.e. `npm init`), and run
 
 ```
-npm install --save-dev $${\color{red}hardhat@npm:@oasislabs/hardhat}$$
+npm install --save-dev hardhat@npm:@oasislabs/hardhat
 ```
 
 Once it's installed, just run this command and follow its instructions:
