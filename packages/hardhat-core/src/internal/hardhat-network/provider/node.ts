@@ -24,7 +24,7 @@ import {
   RunBlockResult,
   RunTxResult,
   VM,
-} from "@nomicfoundation/ethereumjs-vm";
+} from "@oasislabs/ethereumjs-vm";
 import { EVM, EVMResult } from "@nomicfoundation/ethereumjs-evm";
 import { ERROR } from "@nomicfoundation/ethereumjs-evm/dist/exceptions";
 import {
@@ -146,6 +146,7 @@ export class HardhatNode extends EventEmitter {
       networkId,
       chainId,
       allowBlocksWithSameTimestamp,
+      confidential,
     } = config;
 
     const allowUnlimitedContractSize =
@@ -275,6 +276,7 @@ export class HardhatNode extends EventEmitter {
       common,
       stateManager,
       blockchain,
+      confidential: config.confidential,
     });
 
     const instanceId = bufferToBigInt(randomBytes(32));
@@ -298,6 +300,7 @@ export class HardhatNode extends EventEmitter {
       mixHashGenerator,
       allowUnlimitedContractSize,
       allowBlocksWithSameTimestamp,
+      config.confidential ?? false,
       tracingConfig,
       forkNetworkId,
       forkBlockNum,
@@ -385,13 +388,13 @@ Hardhat Network's forking functionality only works with blocks from at least spu
     private _mixHashGenerator: RandomBufferGenerator,
     public readonly allowUnlimitedContractSize: boolean,
     private _allowBlocksWithSameTimestamp: boolean,
+    public readonly confidential: boolean,
     tracingConfig?: TracingConfig,
     private _forkNetworkId?: number,
     private _forkBlockNumber?: bigint,
     private _forkBlockHash?: string,
     nextBlockBaseFee?: bigint,
     private _forkClient?: JsonRpcClient,
-    private _confidential?: boolean | undefined
   ) {
     super();
 
@@ -747,10 +750,6 @@ Hardhat Network's forking functionality only works with blocks from at least spu
     return this._vm.publicKey;
   }
 
-  public isConfidential(): boolean | undefined {
-    return this._confidential;
-  }
-  
   public async estimateGas(
     callParams: CallParams,
     blockNumberOrPending: bigint | "pending"

@@ -1,5 +1,5 @@
 import { TypedTransaction } from "@nomicfoundation/ethereumjs-tx";
-import { AfterTxEvent, VM } from "@nomicfoundation/ethereumjs-vm";
+import { AfterTxEvent, VM } from "@oasislabs/ethereumjs-vm";
 import { EVMResult } from "@nomicfoundation/ethereumjs-evm";
 import { InterpreterStep } from "@nomicfoundation/ethereumjs-evm/dist/interpreter";
 import { Message } from "@nomicfoundation/ethereumjs-evm/dist/message";
