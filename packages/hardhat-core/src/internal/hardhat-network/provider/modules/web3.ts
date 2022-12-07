@@ -33,8 +33,8 @@ export class Web3Module {
 
   private async _clientVersionAction(): Promise<string> {
     const hardhatPackage = await getPackageJson();
-    const ethereumjsVMPackage = require("@nomicfoundation/ethereumjs-vm/package.json");
-    return `HardhatNetwork/${hardhatPackage.version}/@nomicfoundation/ethereumjs-vm/${ethereumjsVMPackage.version}`;
+    const ethereumjsVMPackage = require("@oasislabs/ethereumjs-vm/package.json");
+    return `HardhatNetwork/${hardhatPackage.version}/@oasislabs/ethereumjs-vm/${ethereumjsVMPackage.version}`;
   }
 
   // web3_sha3

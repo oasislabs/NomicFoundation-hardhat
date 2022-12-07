@@ -349,13 +349,12 @@ export class EthModule {
 
     let callParams: CallParams;
 
-    if (this._node.isConfidential()) {
-      // TODO: still need to consider the case of unsigned calls
+    if (this._node.confidential && originCallParams.to !== null) {
       const { data: encryptData, leash, signature } = cbor.decode(originCallParams.data);
       const data = new Buffer(cbor.encode(encryptData).buffer);
       callParams = {
-	...originCallParams,
-	data,
+        ...originCallParams,
+        data,
       };
     } else {
       callParams = originCallParams;
@@ -366,7 +365,7 @@ export class EthModule {
       error,
       consoleLogMessages,
     } = await this._node.runCall(callParams, blockNumberOrPending);
-    
+
     const code = await this._node.getCodeFromTrace(trace, blockNumberOrPending);
     
     this._logger.logCallTrace(
