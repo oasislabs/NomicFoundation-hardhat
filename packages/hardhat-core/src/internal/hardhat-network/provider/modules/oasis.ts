@@ -1,6 +1,7 @@
+import { hexlify } from "@ethersproject/bytes";
+
 import { MethodNotFoundError } from "../../../core/providers/errors";
 import { HardhatNode } from "../node";
-import { hexlify } from "@ethersproject/bytes";
 
 export class OasisModule {
 
