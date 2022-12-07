@@ -273,7 +273,7 @@ export class HardhatNetworkProvider
     const miningTimer = this._makeMiningTimer();
 
     this._netModule = new NetModule(common);
-    this._web3Module = new Web3Module();
+    this._web3Module = new Web3Module(node);
     this._evmModule = new EvmModule(
       node,
       miningTimer,
