@@ -273,7 +273,7 @@ export class HardhatNode extends EventEmitter {
       common,
       stateManager,
       blockchain,
-      confidential: config.confidential,
+      confidential: config.confidential ?? true,
     });
 
     const instanceId = bufferToBigInt(randomBytes(32));
@@ -295,7 +295,7 @@ export class HardhatNode extends EventEmitter {
       hardfork,
       hardforkActivations,
       mixHashGenerator,
-      config.confidential ?? false,
+      config.confidential ?? true,
       tracingConfig,
       forkNetworkId,
       forkBlockNum,
