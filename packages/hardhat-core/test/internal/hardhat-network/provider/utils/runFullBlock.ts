@@ -3,7 +3,7 @@ import {
   AfterBlockEvent,
   RunBlockOpts,
   VM,
-} from "@nomicfoundation/ethereumjs-vm";
+} from "@oasislabs/ethereumjs-vm";
 import { assert } from "chai";
 
 import { defaultHardhatNetworkParams } from "../../../../../src/internal/core/config/default-config";

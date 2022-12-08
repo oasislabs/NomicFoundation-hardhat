@@ -5,7 +5,7 @@ import {
   privateToAddress,
   bigIntToBuffer,
 } from "@nomicfoundation/ethereumjs-util";
-import { VM } from "@nomicfoundation/ethereumjs-vm";
+import { VM } from "@oasislabs/ethereumjs-vm";
 import abi from "ethereumjs-abi";
 
 import { MessageTrace } from "../../../../src/internal/hardhat-network/stack-traces/message-trace";
