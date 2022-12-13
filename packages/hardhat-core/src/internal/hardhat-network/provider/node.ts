@@ -276,7 +276,7 @@ export class HardhatNode extends EventEmitter {
       common,
       stateManager,
       blockchain,
-      confidential: config.confidential ?? true,
+      confidential: confidential ?? true,
     });
 
     const instanceId = bufferToBigInt(randomBytes(32));
@@ -300,7 +300,7 @@ export class HardhatNode extends EventEmitter {
       mixHashGenerator,
       allowUnlimitedContractSize,
       allowBlocksWithSameTimestamp,
-      config.confidential ?? true,
+      confidential ?? true,
       tracingConfig,
       forkNetworkId,
       forkBlockNum,
@@ -394,7 +394,7 @@ Hardhat Network's forking functionality only works with blocks from at least spu
     private _forkBlockNumber?: bigint,
     private _forkBlockHash?: string,
     nextBlockBaseFee?: bigint,
-    private _forkClient?: JsonRpcClient,
+    private _forkClient?: JsonRpcClient
   ) {
     super();
 
@@ -750,6 +750,10 @@ Hardhat Network's forking functionality only works with blocks from at least spu
     return this._vm.publicKey;
   }
 
+  public getSecretKey(): Uint8Array {
+    return this._vm.secretKey;
+  }
+
   public async estimateGas(
     callParams: CallParams,
     blockNumberOrPending: bigint | "pending"
@@ -875,13 +879,17 @@ Hardhat Network's forking functionality only works with blocks from at least spu
     positionIndex: bigint,
     blockNumberOrPending: bigint | "pending"
   ): Promise<Buffer> {
+    const EXPECTED_DATA_SIZE = 32;
+    if (this.confidential) {
+      return Buffer.alloc(EXPECTED_DATA_SIZE, 0);
+    }
+
     const key = setLengthLeft(bigIntToBuffer(positionIndex), 32);
 
     const data = await this._runInBlockContext(blockNumberOrPending, () =>
       this._stateManager.getContractStorage(address, key)
     );
 
-    const EXPECTED_DATA_SIZE = 32;
     if (data.length < EXPECTED_DATA_SIZE) {
       return Buffer.concat(
         [Buffer.alloc(EXPECTED_DATA_SIZE - data.length, 0), data],

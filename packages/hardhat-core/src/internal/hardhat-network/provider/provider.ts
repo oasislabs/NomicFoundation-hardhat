@@ -237,7 +237,7 @@ export class HardhatNetworkProvider
     if (method.startsWith("oasis_")) {
       return this._oasisModule!.processRequest(method, params);
     }
-    
+
     throw new MethodNotFoundError(`Method ${method} not found`);
   }
 
@@ -307,7 +307,7 @@ export class HardhatNetworkProvider
     this._debugModule = new DebugModule(node);
     this._personalModule = new PersonalModule(node);
     this._oasisModule = new OasisModule(node);
-    
+
     this._forwardNodeEvents(node);
   }
 
