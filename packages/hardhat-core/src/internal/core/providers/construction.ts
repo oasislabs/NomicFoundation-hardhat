@@ -110,7 +110,8 @@ export function createProvider(
       experimentalHardhatNetworkMessageTraceHooks,
       forkConfig,
       paths !== undefined ? getForkCacheDirPath(paths) : undefined,
-      hardhatNetConfig.coinbase
+      hardhatNetConfig.coinbase,
+      hardhatNetConfig.confidential
     );
   } else {
     const HttpProvider = importProvider<

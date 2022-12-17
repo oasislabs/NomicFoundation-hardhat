@@ -2,7 +2,7 @@ import { Block } from "@nomicfoundation/ethereumjs-block";
 import { Common } from "@nomicfoundation/ethereumjs-common";
 import { TypedTransaction } from "@nomicfoundation/ethereumjs-tx";
 import { bufferToHex } from "@nomicfoundation/ethereumjs-util";
-import { RunBlockResult } from "@nomicfoundation/ethereumjs-vm";
+import { RunBlockResult } from "@oasislabs/ethereumjs-vm";
 
 import * as BigIntUtils from "../../util/bigint";
 import { assertHardhatInvariant } from "../../core/errors";

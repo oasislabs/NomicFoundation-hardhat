@@ -2,7 +2,7 @@ import { Block } from "@nomicfoundation/ethereumjs-block";
 import {
   AfterBlockEvent,
   PostByzantiumTxReceipt,
-} from "@nomicfoundation/ethereumjs-vm";
+} from "@oasislabs/ethereumjs-vm";
 import { assert } from "chai";
 import { bufferToHex } from "@nomicfoundation/ethereumjs-util";
 

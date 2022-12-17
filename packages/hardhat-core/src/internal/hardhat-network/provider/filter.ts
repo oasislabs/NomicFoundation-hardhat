@@ -1,5 +1,5 @@
 import { bufferToHex, toBuffer } from "@nomicfoundation/ethereumjs-util";
-import { Bloom } from "@nomicfoundation/ethereumjs-vm";
+import { Bloom } from "@oasislabs/ethereumjs-vm";
 
 import { RpcLogOutput } from "./output";
 
