@@ -19,9 +19,6 @@
     "task-runner",
     "solidity"
   ],
-  "bin": {
-    "hardhat": "internal/cli/bootstrap.js"
-  },
   "engines": {
     "node": ">=14.0.0"
   },
