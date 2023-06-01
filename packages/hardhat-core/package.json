@@ -19,9 +19,6 @@
     "task-runner",
     "solidity"
   ],
-  "bin": {
-    "hardhat": "internal/cli/cli.js"
-  },
   "engines": {
     "node": "^14.0.0 || ^16.0.0 || ^18.0.0"
   },
