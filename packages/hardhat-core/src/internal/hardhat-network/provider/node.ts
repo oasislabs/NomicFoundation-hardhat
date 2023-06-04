@@ -27,6 +27,7 @@ import {
 } from "@oasislabs/ethereumjs-vm";
 import { EVM, EVMResult } from "@nomicfoundation/ethereumjs-evm";
 import { ERROR } from "@nomicfoundation/ethereumjs-evm/dist/exceptions";
+import { AddPrecompile } from "@nomicfoundation/ethereumjs-evm/dist/precompiles";
 import {
   DefaultStateManager,
   StateManager,
@@ -125,6 +126,12 @@ import { makeStateTrie } from "./utils/makeStateTrie";
 import { putGenesisBlock } from "./utils/putGenesisBlock";
 import { txMapToArray } from "./utils/txMapToArray";
 import { RandomBufferGenerator } from "./utils/random";
+
+import { precompile01 } from "./precompiles/01-random-bytes";
+import { precompile02 } from "./precompiles/02-x25519-key-derivation";
+import { precompile03 } from "./precompiles/03-deoxysii-seal";
+import { precompile04 } from "./precompiles/04-deoxysii-open";
+import { precompile05 } from "./precompiles/05-keypair-generate";
 
 type ExecResult = EVMResult["execResult"];
 
@@ -264,10 +271,51 @@ export class HardhatNode extends EventEmitter {
     const txPool = new TxPool(stateManager, BigInt(blockGasLimit), common);
 
     const eei = new EEI(stateManager, common, blockchain);
+
+    const addPrecompile01: AddPrecompile = {
+      address: new Address(
+        Buffer.from("0100000000000000000000000000000000000001", "hex")
+      ),
+      function: precompile01,
+    };
+    const addPrecompile02: AddPrecompile = {
+      address: new Address(
+        Buffer.from("0100000000000000000000000000000000000002", "hex")
+      ),
+      function: precompile02,
+    };
+    const addPrecompile03: AddPrecompile = {
+      address: new Address(
+        Buffer.from("0100000000000000000000000000000000000003", "hex")
+      ),
+      function: precompile03,
+    };
+    const addPrecompile04: AddPrecompile = {
+      address: new Address(
+        Buffer.from("0100000000000000000000000000000000000004", "hex")
+      ),
+      function: precompile04,
+    };
+    const addPrecompile05: AddPrecompile = {
+      address: new Address(
+        Buffer.from("0100000000000000000000000000000000000005", "hex")
+      ),
+      function: precompile05,
+    };
+
+    const customPrecompiles = [
+      addPrecompile01,
+      addPrecompile02,
+      addPrecompile03,
+      addPrecompile04,
+      addPrecompile05,
+    ];
+
     const evm = await EVM.create({
       eei,
       allowUnlimitedContractSize,
       common,
+      customPrecompiles,
     });
 
     const vm = await VM.create({
