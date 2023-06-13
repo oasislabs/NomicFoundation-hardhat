@@ -1,6 +1,6 @@
 {
   "name": "@oasislabs/hardhat",
-  "version": "2.14.1",
+  "version": "2.14.7",
   "author": "Nomic Labs LLC",
   "license": "MIT",
   "homepage": "https://hardhat.org",
@@ -19,11 +19,11 @@
     "task-runner",
     "solidity"
   ],
-  "engines": {
-    "node": ">=14.0.0"
-  },
   "bin": {
     "hardhat": "internal/cli/bootstrap.js"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   },
   "scripts": {
     "lint": "yarn prettier --check && yarn eslint",
@@ -112,7 +112,8 @@
     "@nomicfoundation/ethereumjs-tx": "5.0.1",
     "@nomicfoundation/ethereumjs-util": "9.0.1",
     "@nomicfoundation/solidity-analyzer": "^0.1.0",
-    "@oasislabs/ethereumjs-vm": "^6.0.0",
+    "@oasislabs/ethereumjs-vm": "7.0.1",
+    "@oasisprotocol/deoxysii": "^0.0.5",
     "@oasisprotocol/sapphire-paratime": "^1.0.13",
     "@sentry/node": "^5.18.1",
     "@types/bn.js": "^5.1.0",
@@ -137,6 +138,7 @@
     "glob": "7.2.0",
     "immutable": "^4.0.0-rc.12",
     "io-ts": "1.10.4",
+    "js-sha512": "^0.8.0",
     "keccak": "^3.0.2",
     "lodash": "^4.17.11",
     "mnemonist": "^0.38.0",
@@ -150,6 +152,7 @@
     "source-map-support": "^0.5.13",
     "stacktrace-parser": "^0.1.10",
     "tsort": "0.0.1",
+    "tweetnacl": "^1.0.3",
     "undici": "^5.14.0",
     "uuid": "^8.3.2",
     "ws": "^7.4.6"
