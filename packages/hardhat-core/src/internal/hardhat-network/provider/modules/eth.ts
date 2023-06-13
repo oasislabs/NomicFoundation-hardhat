@@ -15,7 +15,7 @@ import {
 import * as t from "io-ts";
 import cloneDeep from "lodash/cloneDeep";
 import * as cbor from "cborg";
-import * as ethers from "ethers";
+import * as ethers from "ethers-v5";
 import { _TypedDataEncoder } from "@ethersproject/hash";
 import { cipher, signedCalls } from "@oasisprotocol/sapphire-paratime";
 import { hexlify } from "@ethersproject/bytes";

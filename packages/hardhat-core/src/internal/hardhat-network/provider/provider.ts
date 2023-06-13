@@ -103,7 +103,7 @@ export class HardhatNetworkProvider
   constructor(
     private readonly _config: HardhatNetworkProviderConfig,
     private readonly _logger: ModulesLogger,
-    private readonly _artifacts?: Artifacts
+    private readonly _artifacts?: Artifacts,
     private readonly _genesisAccounts: GenesisAccount[] = [],
     private readonly _allowUnlimitedContractSize = false,
     private readonly _initialDate?: Date,
