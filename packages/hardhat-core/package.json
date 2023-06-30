@@ -108,7 +108,7 @@
     "@nomicfoundation/ethereumjs-tx": "5.0.1",
     "@nomicfoundation/ethereumjs-util": "9.0.1",
     "@nomicfoundation/solidity-analyzer": "^0.1.0",
-    "@oasislabs/ethereumjs-vm": "^6.0.0",
+    "@oasislabs/ethereumjs-vm": "^7.0.1",
     "@oasisprotocol/sapphire-paratime": "^1.0.13",
     "@sentry/node": "^5.18.1",
     "@types/bn.js": "^5.1.0",
